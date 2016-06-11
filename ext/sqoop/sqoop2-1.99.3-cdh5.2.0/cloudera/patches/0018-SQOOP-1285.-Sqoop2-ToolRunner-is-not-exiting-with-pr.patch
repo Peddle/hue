@@ -1,0 +1,25 @@
+From 32c31ed8c675de9ef60d1e81fb1f21931772a78e Mon Sep 17 00:00:00 2001
+From: Hari Shreedharan <hshreedharan@apache.org>
+Date: Sun, 9 Feb 2014 15:08:41 -0800
+Subject: [PATCH 18/30] SQOOP-1285. Sqoop2: ToolRunner is not exiting with proper exit value on error.
+
+(Jarek Jarcec Cecho via Hari Shreedharan)
+---
+ .../java/org/apache/sqoop/tools/ToolRunner.java    |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/tools/src/main/java/org/apache/sqoop/tools/ToolRunner.java b/tools/src/main/java/org/apache/sqoop/tools/ToolRunner.java
+index 8f64e7f..73dc9c5 100644
+--- a/tools/src/main/java/org/apache/sqoop/tools/ToolRunner.java
++++ b/tools/src/main/java/org/apache/sqoop/tools/ToolRunner.java
+@@ -72,6 +72,7 @@ public static void main(String[] args) throws Exception {
+       System.out.println("Tool " + toolClass + " has finished correctly.");
+     } else {
+       System.out.println("Tool " + toolClass + " has failed.");
++      System.exit(1);
+     }
+   }
+ 
+-- 
+1.7.0.4
+

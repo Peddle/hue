@@ -1,0 +1,213 @@
+From cd5bebbba24538002235d89ef29da2833c0baa84 Mon Sep 17 00:00:00 2001
+From: Hari Shreedharan <hshreedharan@apache.org>
+Date: Thu, 2 Jan 2014 09:25:52 -0800
+Subject: [PATCH 15/30] SQOOP-1262. Sqoop2: Tool: Create user guide entry for the Tooling infrastructure
+
+(Jarek Jarcec Cecho via Hari Shreedharan)
+---
+ docs/src/site/sphinx/Installation.rst |   15 ++++++-
+ docs/src/site/sphinx/Tools.rst        |   73 +++++++++++++++++++++++++++++++++
+ docs/src/site/sphinx/Upgrade.rst      |   26 +++++++++++-
+ docs/src/site/sphinx/index.rst        |   23 +++++++----
+ 4 files changed, 125 insertions(+), 12 deletions(-)
+ create mode 100644 docs/src/site/sphinx/Tools.rst
+
+diff --git a/docs/src/site/sphinx/Installation.rst b/docs/src/site/sphinx/Installation.rst
+index c25d394..97af412 100644
+--- a/docs/src/site/sphinx/Installation.rst
++++ b/docs/src/site/sphinx/Installation.rst
+@@ -14,9 +14,9 @@
+    limitations under the License.
+ 
+ 
+-=======================================
++============
+ Installation
+-=======================================
++============
+ 
+ Sqoop ships as one binary package however it's compound from two separate parts - client and server. You need to install server on single node in your cluster. This node will then serve as an entry point for all connecting Sqoop clients. Server acts as a mapreduce client and therefore Hadoop must be installed and configured on machine hosting Sqoop server. Clients can be installed on any arbitrary number of machines. Client is not acting as a mapreduce client and thus you do not need to install Hadoop on nodes that will act only as a Sqoop client.
+ 
+@@ -58,6 +58,17 @@ File ``sqoop_bootstrap.properties`` specifies which configuration provider shoul
+ 
+ Second configuration file ``sqoop.properties`` contains remaining configuration properties that can affect Sqoop server. File is very well documented, so check if all configuration properties fits your environment. Default or very little tweaking should be sufficient most common cases.
+ 
++You can verify the Sqoop server configuration using `Verify Tool <Tools.html#verify>`__, for example::
++
++  ./bin/sqoop.sh tool verify
++
++Upon running the ``verify`` tool, you should see messages similar to the following::
++
++  Verification was successful.
++  Tool class org.apache.sqoop.tools.tool.VerifyTool has finished correctly
++
++Consult `Verify Tool <Tools.html#upgrade>`__ documentation page in case of any failure.
++
+ Server Life Cycle
+ -----------------
+ 
+diff --git a/docs/src/site/sphinx/Tools.rst b/docs/src/site/sphinx/Tools.rst
+new file mode 100644
+index 0000000..1c7481f
+--- /dev/null
++++ b/docs/src/site/sphinx/Tools.rst
+@@ -0,0 +1,73 @@
++.. Licensed to the Apache Software Foundation (ASF) under one or more
++   contributor license agreements.  See the NOTICE file distributed with
++   this work for additional information regarding copyright ownership.
++   The ASF licenses this file to You under the Apache License, Version 2.0
++   (the "License"); you may not use this file except in compliance with
++   the License.  You may obtain a copy of the License at
++
++       http://www.apache.org/licenses/LICENSE-2.0
++
++   Unless required by applicable law or agreed to in writing, software
++   distributed under the License is distributed on an "AS IS" BASIS,
++   WITHOUT WARRANTIES OR CONDITIONS OF lANY KIND, either express or implied.
++   See the License for the specific language governing permissions and
++   limitations under the License.
++
++
++=====
++Tools
++=====
++
++Tools are server commands that administrators can execute on the Sqoop server machine in order to perform various maintenance tasks. The tool execution will always perform a given task and finish. There are no long running services implemented as tools.
++
++In order to perform the maintenance task each tool is suppose to do, they need to be executed in exactly the same environment as the main Sqoop server. The tool binary will take care of setting up the ``CLASSPATH`` and other environmental variables that might be required. However it's up to the administrator himself to run the tool under the same user as is used for the server. This is usually configured automatically for various Hadoop distributions (such as Apache Bigtop).
++
++
++.. note:: Running tools under a different user such as ``root`` might prevent Sqoop Server from running correctly.
++
++List of available tools:
++
++* verify
++* upgrade
++
++To run the desired tool, execute binary ``sqoop.sh`` with the parameter ``tool`` followed by the desired tool name. For example to run ``verify`` tool::
++
++  bin/sqoop.sh tool verify
++
++.. note:: Running tools while the Sqoop Server is also running is not recommended as it might lead to a data corruption and service disruption.
++
++Verify
++======
++
++The verify tool will verify Sqoop server configuration by starting all subsystems with the exception of servlets and tearing them down.
++
++To run the ``verify`` tool::
++
++  bin/sqoop.sh tool verify
++
++If the verification process succeeds, you should see messages like::
++
++  Verification was successful.
++  Tool class org.apache.sqoop.tools.tool.VerifyTool has finished correctly
++
++If the verification process will find any inconsistencies, it will print out the following message instead::
++
++  Verification has failed, please check Server logs for further details.
++  Tool class org.apache.sqoop.tools.tool.VerifyTool has failed.
++
++Further details why the verification has failed will be available in the Sqoop server log - same file as the Sqoop Server logs into.
++
++Upgrade
++=======
++
++Upgrades all versionable components inside Sqoop2. This includes structural changes inside the repository and stored metadata. Running this tool is idempotent.
++
++Upon successful upgrade you should see following message::
++
++  Tool class org.apache.sqoop.tools.tool.UpgradeTool has finished correctly.
++
++Execution failure will show the following message instead::
++
++  Tool class org.apache.sqoop.tools.tool.UpgradeTool has failed.
++
++Further details why the upgrade process has failed will be available in the Sqoop server log - same file as the Sqoop Server logs into.
+diff --git a/docs/src/site/sphinx/Upgrade.rst b/docs/src/site/sphinx/Upgrade.rst
+index 49a76c2..45d27bd 100644
+--- a/docs/src/site/sphinx/Upgrade.rst
++++ b/docs/src/site/sphinx/Upgrade.rst
+@@ -25,11 +25,33 @@ This page describes procedure that you need to take in order to upgrade Sqoop fr
+ Upgrading Server
+ ================
+ 
+-As Sqoop server is using external repository for persisting connection and job objects, this repository needs to be updated in addition to updating the server bits. The capability of performing the upgrade has been built-in to the server, however is disabled by default to avoid any unintentional changes to the repository. You can start the upgrade procedure by stopping the server: ::
++As Sqoop server is using external repository for persisting connection and job objects, this repository needs to be updated in addition to updating the server bits. There are two ways how to upgrade Sqoop server metadata and it's structures, you can either execute upgrade tool or configure Server to perform all necessary changes on start up.
++
++It's strongly advised to back up the repository before moving on to next steps. Backup instructions will vary depending on the repository implementation. For example, using MySQL as a repository will require a different back procedure than Apache Derby. Please follow the repositories' backup procedure
++
++Upgrading Server using upgrade tool
++-----------------------------------
++
++Preferred upgrade path is to explicitly run the `Upgrade Tool <Tools.html#upgrade>`_. First step is to however shutdown the server as having both the server and upgrade utility accessing the same repository might corrupt it::
+ 
+   ./bin/sqoop.sh server stop
+ 
+-It's strongly advised to back up the repository before moving on to next steps. Precise back-up instructions depends on the repository implementation that is in use, please follow the repository owns instructions to back it up.
++When the server has been successfully stopped, you can update the server bits and simply run the upgrade tool::
++
++  ./bin/sqoop.sh tool upgrade
++
++You should see that the upgrade process has been successful::
++
++  Tool class org.apache.sqoop.tools.tool.UpgradeTool has finished correctly.
++
++In case of any failure, please take a look into `Upgrade Tool <Tools.html#upgrade>`_ documentation page.
++
++Upgrading Server on start-up
++----------------------------
++
++The capability of performing the upgrade has been built-in to the server, however is disabled by default to avoid any unintentional changes to the repository. You can start the upgrade procedure by stopping the server: ::
++
++  ./bin/sqoop.sh server stop
+ 
+ Now you can update server bits. Before starting the server again you will need to enable the auto-upgrade feature that will perform all necessary during Sqoop Server boot up procedure. You need to set following properties in configuration file ``sqoop.properties``::
+ 
+diff --git a/docs/src/site/sphinx/index.rst b/docs/src/site/sphinx/index.rst
+index f5d7d92..e9bfd51 100644
+--- a/docs/src/site/sphinx/index.rst
++++ b/docs/src/site/sphinx/index.rst
+@@ -40,19 +40,16 @@ License
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ 
+-Overview
+---------
++Administrator Documentation
++---------------------------
+ 
+-- `Download Apache Sqoop <http://www.apache.org/dyn/closer.cgi/sqoop>`_
+-- `Sqoop Wiki <https://cwiki.apache.org/confluence/display/SQOOP/Home>`_
+-- `Sqoop Issue Tracking (JIRA) <https://issues.apache.org/jira/browse/SQOOP>`_
+-- `Sqoop Source Code <https://git-wip-us.apache.org/repos/asf?p=sqoop.git;a=summary>`_
++- `Installation <Installation.html>`_
++- `Upgrade <Upgrade.html>`_
++- `Tools <Tools.html>`_
+ 
+ User Documentation
+ ------------------
+ 
+-- `Installation <Installation.html>`_
+-- `Upgrade <Upgrade.html>`_
+ - `5 Minutes Demo <Sqoop5MinutesDemo.html>`_
+ - `Command Line Client <CommandLineClient.html>`_
+ 
+@@ -64,3 +61,13 @@ Developer Guide
+ - `Java Client API Guide <ClientAPI.html>`_
+ - `Developping Connector <ConnectorDevelopment.html>`_
+ - `REST API Guide <RESTAPI.html>`_
++
++Overview
++--------
++
++- `Download Apache Sqoop <http://www.apache.org/dyn/closer.cgi/sqoop>`_
++- `Sqoop Wiki <https://cwiki.apache.org/confluence/display/SQOOP/Home>`_
++- `Sqoop Issue Tracking (JIRA) <https://issues.apache.org/jira/browse/SQOOP>`_
++- `Sqoop Source Code <https://git-wip-us.apache.org/repos/asf?p=sqoop.git;a=summary>`_
++
++
+-- 
+1.7.0.4
+

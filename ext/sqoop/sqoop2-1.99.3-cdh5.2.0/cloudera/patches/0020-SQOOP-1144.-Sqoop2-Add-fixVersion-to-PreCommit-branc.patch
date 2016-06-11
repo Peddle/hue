@@ -1,0 +1,33 @@
+From ed51b41b2276557fb097a3076f18d57d86b670bc Mon Sep 17 00:00:00 2001
+From: Hari Shreedharan <hshreedharan@apache.org>
+Date: Sun, 2 Feb 2014 21:02:28 -0800
+Subject: [PATCH 20/30] SQOOP-1144. Sqoop2: Add fixVersion to PreCommit branch detection
+
+(Jarek Jarcec Cecho via Hari Shreedharan)
+---
+ dev-support/test-patch.py |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/dev-support/test-patch.py b/dev-support/test-patch.py
+index 0196cfa..ae44b60 100755
+--- a/dev-support/test-patch.py
++++ b/dev-support/test-patch.py
+@@ -147,8 +147,15 @@ def jira_get_attachment(result, defect, username, password):
+ # Get versions from JIRA JSON object
+ def json_get_version(json):
+   versions = []
++
++  # Load affectedVersion field
+   for version in json.get("fields").get("versions"):
+     versions = versions + [version.get("name")]
++
++  # Load fixVersion field
++  for version in json.get("fields").get("fixVersions"):
++    versions = versions + [version.get("name")]
++
+   return versions
+ 
+ def git_cleanup():
+-- 
+1.7.0.4
+

@@ -1,0 +1,39 @@
+From 80ae59e632acdf7ad428d0ed00254e9c0ff3ec3a Mon Sep 17 00:00:00 2001
+From: Jarek Jarcec Cecho <jarcec@apache.org>
+Date: Fri, 6 Dec 2013 13:04:52 -0800
+Subject: [PATCH 10/30] CLOUDERA-BUILD. Changing dependencies to CDH specific ones.
+
+---
+ tomcat/pom.xml |    2 +-
+ tools/pom.xml  |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tomcat/pom.xml b/tomcat/pom.xml
+index 91616bb..e16a829 100644
+--- a/tomcat/pom.xml
++++ b/tomcat/pom.xml
+@@ -22,7 +22,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>2.0.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.0.0-SNAPSHOT</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/tools/pom.xml b/tools/pom.xml
+index 31eda1c..683e57c 100644
+--- a/tools/pom.xml
++++ b/tools/pom.xml
+@@ -22,7 +22,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>2.0.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.0.0-SNAPSHOT</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+-- 
+1.7.0.4
+

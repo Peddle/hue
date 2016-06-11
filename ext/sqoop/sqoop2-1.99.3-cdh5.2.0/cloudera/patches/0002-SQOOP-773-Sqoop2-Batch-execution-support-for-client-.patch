@@ -1,0 +1,2566 @@
+From 1be0c03f0cf1d03c70a656899cedd755f8b6a79b Mon Sep 17 00:00:00 2001
+From: Jarek Jarcec Cecho <jarcec@apache.org>
+Date: Wed, 16 Oct 2013 14:21:56 -0700
+Subject: [PATCH 02/30] SQOOP-773: Sqoop2: Batch execution support for client commands
+
+(Abraham Elmahrek via Jarek Jarcec Cecho)
+---
+ .../java/org/apache/sqoop/shell/CloneCommand.java  |    6 -
+ .../sqoop/shell/CloneConnectionFunction.java       |   71 +++--
+ .../org/apache/sqoop/shell/CloneJobFunction.java   |   73 +++--
+ .../java/org/apache/sqoop/shell/CreateCommand.java |    6 -
+ .../sqoop/shell/CreateConnectionFunction.java      |   71 +++--
+ .../org/apache/sqoop/shell/CreateJobFunction.java  |   75 +++--
+ .../sqoop/shell/DeleteConnectionFunction.java      |   15 +-
+ .../org/apache/sqoop/shell/DeleteJobFunction.java  |   22 +-
+ .../sqoop/shell/DisableConnectionFunction.java     |   14 +-
+ .../org/apache/sqoop/shell/DisableJobFunction.java |   21 +-
+ .../sqoop/shell/EnableConnectionFunction.java      |   14 +-
+ .../org/apache/sqoop/shell/EnableJobFunction.java  |   21 +-
+ .../org/apache/sqoop/shell/SetOptionFunction.java  |   31 ++-
+ .../org/apache/sqoop/shell/SetServerFunction.java  |   13 +-
+ .../apache/sqoop/shell/ShowConnectionFunction.java |    7 +-
+ .../apache/sqoop/shell/ShowConnectorFunction.java  |    6 +-
+ .../apache/sqoop/shell/ShowFrameworkFunction.java  |   15 +-
+ .../org/apache/sqoop/shell/ShowJobFunction.java    |    7 +-
+ .../org/apache/sqoop/shell/ShowOptionFunction.java |   22 +-
+ .../org/apache/sqoop/shell/ShowServerFunction.java |   12 +-
+ .../apache/sqoop/shell/ShowSubmissionFunction.java |    6 +-
+ .../apache/sqoop/shell/ShowVersionFunction.java    |    6 +-
+ .../java/org/apache/sqoop/shell/SqoopFunction.java |   39 +--
+ .../java/org/apache/sqoop/shell/SqoopShell.java    |    5 +-
+ .../java/org/apache/sqoop/shell/StartCommand.java  |    1 -
+ .../org/apache/sqoop/shell/StartJobFunction.java   |   10 +-
+ .../java/org/apache/sqoop/shell/StatusCommand.java |    1 -
+ .../org/apache/sqoop/shell/StatusJobFunction.java  |   10 +-
+ .../java/org/apache/sqoop/shell/StopCommand.java   |    1 -
+ .../org/apache/sqoop/shell/StopJobFunction.java    |    9 +-
+ .../java/org/apache/sqoop/shell/UpdateCommand.java |    6 -
+ .../sqoop/shell/UpdateConnectionFunction.java      |   76 +++--
+ .../org/apache/sqoop/shell/UpdateJobFunction.java  |   73 +++--
+ .../org/apache/sqoop/shell/core/ShellError.java    |    5 +-
+ .../shell/utils/ConnectionDynamicFormOptions.java  |   44 +++
+ .../sqoop/shell/utils/DynamicFormOptions.java      |   35 ++
+ .../org/apache/sqoop/shell/utils/FormFiller.java   |  364 +++++++++++++++++++-
+ .../org/apache/sqoop/shell/utils/FormOptions.java  |  117 +++++++
+ .../sqoop/shell/utils/JobDynamicFormOptions.java   |   44 +++
+ 39 files changed, 1058 insertions(+), 316 deletions(-)
+ create mode 100644 shell/src/main/java/org/apache/sqoop/shell/utils/ConnectionDynamicFormOptions.java
+ create mode 100644 shell/src/main/java/org/apache/sqoop/shell/utils/DynamicFormOptions.java
+ create mode 100644 shell/src/main/java/org/apache/sqoop/shell/utils/FormOptions.java
+ create mode 100644 shell/src/main/java/org/apache/sqoop/shell/utils/JobDynamicFormOptions.java
+
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/CloneCommand.java b/shell/src/main/java/org/apache/sqoop/shell/CloneCommand.java
+index 980a908..a7e7e7d 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/CloneCommand.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/CloneCommand.java
+@@ -17,8 +17,6 @@
+  */
+ package org.apache.sqoop.shell;
+ 
+-import org.apache.sqoop.common.SqoopException;
+-import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.codehaus.groovy.tools.shell.Shell;
+ 
+@@ -41,10 +39,6 @@ public CloneCommand(Shell shell) {
+   }
+ 
+   public Object executeCommand(List args) {
+-    if(!isInteractive()) {
+-      throw new SqoopException(ShellError.SHELL_0007, "clone");
+-    }
+-
+     if (args.size() == 0) {
+       printlnResource(Constants.RES_CLONE_USAGE, getUsage());
+       return null;
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/CloneConnectionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/CloneConnectionFunction.java
+index 856abaa..9cce17b 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/CloneConnectionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/CloneConnectionFunction.java
+@@ -20,14 +20,15 @@
+ import jline.ConsoleReader;
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.sqoop.common.SqoopException;
+ import org.apache.sqoop.model.MConnection;
+ import org.apache.sqoop.model.MPersistableEntity;
+-import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.shell.utils.ConnectionDynamicFormOptions;
++import org.apache.sqoop.shell.utils.FormOptions;
+ import org.apache.sqoop.validation.Status;
+ 
+ import java.io.IOException;
++import java.util.List;
+ import java.util.ResourceBundle;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+@@ -36,6 +37,7 @@
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class CloneConnectionFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   public CloneConnectionFunction() {
+@@ -47,22 +49,22 @@ public CloneConnectionFunction() {
+     );
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_XID)) {
+       printlnResource(Constants.RES_ARGS_XID_MISSING);
+-      return null;
+-    }
+-
+-    try {
+-      cloneConnection(getLong(line, Constants.OPT_XID));
+-    } catch (IOException ex) {
+-      throw new SqoopException(ShellError.SHELL_0005, ex);
++      return false;
+     }
++    return true;
++  }
+ 
+-    return null;
++  @Override
++  @SuppressWarnings("unchecked")
++  public Object executeFunction(CommandLine line, boolean isInteractive) throws IOException {
++    return cloneConnection(getLong(line, Constants.OPT_XID), line.getArgList(), isInteractive);
+   }
+ 
+-  private void cloneConnection(Long connectionId) throws IOException {
++  private Status cloneConnection(Long connectionId, List<String> args, boolean isInteractive) throws IOException {
+     printlnResource(Constants.RES_CLONE_CLONING_CONN, connectionId);
+ 
+     ConsoleReader reader = new ConsoleReader();
+@@ -72,25 +74,44 @@ private void cloneConnection(Long connectionId) throws IOException {
+     connection.setPersistenceId(MPersistableEntity.PERSISTANCE_ID_DEFAULT);
+ 
+     Status status = Status.FINE;
+-    printlnResource(Constants.RES_PROMPT_UPDATE_CONN_METADATA);
+ 
+     ResourceBundle connectorBundle = client.getResourceBundle(connection.getConnectorId());
+     ResourceBundle frameworkBundle = client.getFrameworkResourceBundle();
+-    do {
+-      // Print error introduction if needed
+-      if( !status.canProceed() ) {
+-        errorIntroduction();
+-      }
+ 
+-      // Fill in data from user
+-      if(!fillConnection(reader, connection, connectorBundle, frameworkBundle)) {
+-        return;
++    if (isInteractive) {
++      printlnResource(Constants.RES_PROMPT_UPDATE_CONN_METADATA);
++
++      do {
++        // Print error introduction if needed
++        if( !status.canProceed() ) {
++          errorIntroduction();
++        }
++
++        // Fill in data from user
++        if(!fillConnection(reader, connection, connectorBundle, frameworkBundle)) {
++          return null;
++        }
++
++        status = client.createConnection(connection);
++      } while(!status.canProceed());
++    } else {
++      ConnectionDynamicFormOptions options = new ConnectionDynamicFormOptions();
++      options.prepareOptions(connection);
++      CommandLine line = FormOptions.parseOptions(options, 0, args, false);
++      if (fillConnection(line, connection)) {
++        status = client.createConnection(connection);
++        if (!status.canProceed()) {
++          printConnectionValidationMessages(connection);
++          return null;
++        }
++      } else {
++        printConnectionValidationMessages(connection);
++        return null;
+       }
+-
+-      status = client.createConnection(connection);
+-
+-    } while(!status.canProceed());
++    }
+ 
+     printlnResource(Constants.RES_CLONE_CONN_SUCCESSFUL, status.name(), connection.getPersistenceId());
++
++    return status;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/CloneJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/CloneJobFunction.java
+index 3e23025..f80552c 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/CloneJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/CloneJobFunction.java
+@@ -20,14 +20,15 @@
+ import jline.ConsoleReader;
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.sqoop.common.SqoopException;
+ import org.apache.sqoop.model.MJob;
+ import org.apache.sqoop.model.MPersistableEntity;
+-import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.shell.utils.FormOptions;
++import org.apache.sqoop.shell.utils.JobDynamicFormOptions;
+ import org.apache.sqoop.validation.Status;
+ 
+ import java.io.IOException;
++import java.util.List;
+ import java.util.ResourceBundle;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+@@ -36,6 +37,7 @@
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class CloneJobFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   public CloneJobFunction() {
+@@ -46,22 +48,21 @@ public CloneJobFunction() {
+       .create(Constants.OPT_JID_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_JID)) {
+       printlnResource(Constants.RES_ARGS_JID_MISSING);
+-      return null;
+-    }
+-
+-    try {
+-      cloneJob(getLong(line, Constants.OPT_JID));
+-    } catch (IOException ex) {
+-      throw new SqoopException(ShellError.SHELL_0005, ex);
++      return false;
+     }
++    return true;
++  }
+ 
+-    return null;
++  @SuppressWarnings("unchecked")
++  public Object executeFunction(CommandLine line, boolean isInteractive) throws IOException {
++    return cloneJob(getLong(line, Constants.OPT_JID), line.getArgList(), isInteractive);
+   }
+ 
+-  private void cloneJob(Long jobId) throws IOException {
++  private Status cloneJob(Long jobId, List<String> args, boolean isInteractive) throws IOException {
+     printlnResource(Constants.RES_CLONE_CLONING_JOB, jobId);
+ 
+     ConsoleReader reader = new ConsoleReader();
+@@ -77,23 +78,41 @@ private void cloneJob(Long jobId) throws IOException {
+     // Remove persistent id as we're making a clone
+     job.setPersistenceId(MPersistableEntity.PERSISTANCE_ID_DEFAULT);
+ 
+-    printlnResource(Constants.RES_PROMPT_UPDATE_JOB_METADATA);
+-    do {
+-      // Print error introduction if needed
+-      if( !status.canProceed() ) {
+-        errorIntroduction();
+-      }
+-
+-      // Fill in data from user
+-      if(!fillJob(reader, job, connectorBundle, frameworkBundle)) {
+-        return;
++    if (isInteractive) {
++      printlnResource(Constants.RES_PROMPT_UPDATE_JOB_METADATA);
++
++      do {
++        // Print error introduction if needed
++        if( !status.canProceed() ) {
++          errorIntroduction();
++        }
++
++        // Fill in data from user
++        if(!fillJob(reader, job, connectorBundle, frameworkBundle)) {
++          return null;
++        }
++
++        // Try to create
++        status = client.createJob(job);
++      } while(!status.canProceed());
++    } else {
++      JobDynamicFormOptions options = new JobDynamicFormOptions();
++      options.prepareOptions(job);
++      CommandLine line = FormOptions.parseOptions(options, 0, args, false);
++      if (fillJob(line, job)) {
++        status = client.createJob(job);
++        if (!status.canProceed()) {
++          printJobValidationMessages(job);
++          return null;
++        }
++      } else {
++        printJobValidationMessages(job);
++        return null;
+       }
+-
+-      // Try to create
+-      status = client.createJob(job);
+-    } while(!status.canProceed());
++    }
+ 
+     printlnResource(Constants.RES_CLONE_JOB_SUCCESSFUL, status.name(), job.getPersistenceId());
+-  }
+ 
++    return status;
++  }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/CreateCommand.java b/shell/src/main/java/org/apache/sqoop/shell/CreateCommand.java
+index e62ce08..9ad007b 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/CreateCommand.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/CreateCommand.java
+@@ -17,8 +17,6 @@
+  */
+ package org.apache.sqoop.shell;
+ 
+-import org.apache.sqoop.common.SqoopException;
+-import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.codehaus.groovy.tools.shell.Shell;
+ 
+@@ -41,10 +39,6 @@ public CreateCommand(Shell shell) {
+   }
+ 
+   public Object executeCommand(List args) {
+-    if(!isInteractive()) {
+-      throw new SqoopException(ShellError.SHELL_0007, "create");
+-    }
+-
+     if (args.size() == 0) {
+       printlnResource(Constants.RES_CREATE_USAGE, getUsage());
+       return null;
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/CreateConnectionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/CreateConnectionFunction.java
+index 5fbf0a3..ae26035 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/CreateConnectionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/CreateConnectionFunction.java
+@@ -20,14 +20,15 @@
+ import jline.ConsoleReader;
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.sqoop.common.SqoopException;
+ import org.apache.sqoop.model.MConnection;
+-import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.shell.utils.ConnectionDynamicFormOptions;
+ import org.apache.sqoop.shell.utils.FormDisplayer;
++import org.apache.sqoop.shell.utils.FormOptions;
+ import org.apache.sqoop.validation.Status;
+ 
+ import java.io.IOException;
++import java.util.List;
+ import java.util.ResourceBundle;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+@@ -36,6 +37,7 @@
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class CreateConnectionFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   public CreateConnectionFunction() {
+@@ -46,22 +48,22 @@ public CreateConnectionFunction() {
+       .create(Constants.OPT_CID_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_CID)) {
+       printlnResource(Constants.RES_ARGS_CID_MISSING);
+-      return null;
+-    }
+-
+-    try {
+-      createConnection(getLong(line, Constants.OPT_CID));
+-    } catch (IOException ex) {
+-      throw new SqoopException(ShellError.SHELL_0005, ex);
++      return false;
+     }
++    return true;
++  }
+ 
+-    return null;
++  @Override
++  @SuppressWarnings("unchecked")
++  public Object executeFunction(CommandLine line, boolean isInteractive) throws IOException {
++    return createConnection(getLong(line, Constants.OPT_CID), line.getArgList(), isInteractive);
+   }
+ 
+-  private void createConnection(long connectorId) throws IOException {
++  private Status createConnection(long connectorId, List<String> args, boolean isInteractive) throws IOException {
+     printlnResource(Constants.RES_CREATE_CREATING_CONN, connectorId);
+ 
+     ConsoleReader reader = new ConsoleReader();
+@@ -72,22 +74,43 @@ private void createConnection(long connectorId) throws IOException {
+     ResourceBundle frameworkBundle = client.getFrameworkResourceBundle();
+ 
+     Status status = Status.FINE;
+-    printlnResource(Constants.RES_PROMPT_FILL_CONN_METADATA);
+-    do {
+-      // Print error introduction if needed
+-      if( !status.canProceed() ) {
+-        errorIntroduction();
+-      }
+ 
+-      // Fill in data from user
+-      if(!fillConnection(reader, connection, connectorBundle, frameworkBundle)) {
+-        return;
++    if (isInteractive) {
++      printlnResource(Constants.RES_PROMPT_FILL_CONN_METADATA);
++
++      do {
++        // Print error introduction if needed
++        if( !status.canProceed() ) {
++          errorIntroduction();
++        }
++
++        // Fill in data from user
++        if(!fillConnection(reader, connection, connectorBundle, frameworkBundle)) {
++          return null;
++        }
++
++        // Try to create
++        status = client.createConnection(connection);
++      } while(!status.canProceed());
++    } else {
++      ConnectionDynamicFormOptions options = new ConnectionDynamicFormOptions();
++      options.prepareOptions(connection);
++      CommandLine line = FormOptions.parseOptions(options, 0, args, false);
++      if (fillConnection(line, connection)) {
++        status = client.createConnection(connection);
++        if (!status.canProceed()) {
++          printConnectionValidationMessages(connection);
++          return null;
++        }
++      } else {
++        printConnectionValidationMessages(connection);
++        return null;
+       }
++    }
+ 
+-      // Try to create
+-      status = client.createConnection(connection);
+-    } while(!status.canProceed());
+     FormDisplayer.displayFormWarning(connection);
+     printlnResource(Constants.RES_CREATE_CONN_SUCCESSFUL, status.name(), connection.getPersistenceId());
++
++    return status;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/CreateJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/CreateJobFunction.java
+index 6e4f04b..598adbc 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/CreateJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/CreateJobFunction.java
+@@ -20,14 +20,15 @@
+ import jline.ConsoleReader;
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.sqoop.common.SqoopException;
+ import org.apache.sqoop.model.MJob;
+-import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.apache.sqoop.shell.utils.FormDisplayer;
++import org.apache.sqoop.shell.utils.FormOptions;
++import org.apache.sqoop.shell.utils.JobDynamicFormOptions;
+ import org.apache.sqoop.validation.Status;
+ 
+ import java.io.IOException;
++import java.util.List;
+ import java.util.ResourceBundle;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+@@ -36,6 +37,7 @@
+ /**
+  * Handles creation of new job objects.
+  */
++@SuppressWarnings("serial")
+ public class CreateJobFunction extends  SqoopFunction {
+   @SuppressWarnings("static-access")
+   public CreateJobFunction() {
+@@ -53,27 +55,29 @@ public CreateJobFunction() {
+     );
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_XID)) {
+       printlnResource(Constants.RES_ARGS_XID_MISSING);
+-      return null;
++      return false;
+     }
+     if (!line.hasOption(Constants.OPT_TYPE)) {
+       printlnResource(Constants.RES_ARGS_TYPE_MISSING);
+-      return null;
+-    }
+-
+-    try {
+-      createJob(getLong(line, Constants.OPT_XID),
+-                        line.getOptionValue(Constants.OPT_TYPE));
+-    } catch (IOException ex) {
+-      throw new SqoopException(ShellError.SHELL_0005, ex);
++      return false;
+     }
++    return true;
++  }
+ 
+-    return null;
++  @Override
++  @SuppressWarnings("unchecked")
++  public Object executeFunction(CommandLine line, boolean isInteractive) throws IOException {
++    return createJob(getLong(line, Constants.OPT_XID),
++                     line.getOptionValue(Constants.OPT_TYPE),
++                     line.getArgList(),
++                     isInteractive);
+   }
+ 
+-  private void createJob(Long connectionId, String type) throws IOException {
++  private Status createJob(Long connectionId, String type, List<String> args, boolean isInteractive) throws IOException {
+     printlnResource(Constants.RES_CREATE_CREATING_JOB, connectionId);
+ 
+     ConsoleReader reader = new ConsoleReader();
+@@ -84,23 +88,42 @@ private void createJob(Long connectionId, String type) throws IOException {
+ 
+     Status status = Status.FINE;
+ 
+-    printlnResource(Constants.RES_PROMPT_FILL_JOB_METADATA);
++    if (isInteractive) {
++      printlnResource(Constants.RES_PROMPT_FILL_JOB_METADATA);
+ 
+-    do {
+-      // Print error introduction if needed
+-      if( !status.canProceed() ) {
+-        errorIntroduction();
+-      }
++      do {
++        // Print error introduction if needed
++        if( !status.canProceed() ) {
++          errorIntroduction();
++        }
+ 
+-      // Fill in data from user
+-      if(!fillJob(reader, job, connectorBundle, frameworkBundle)) {
+-        return;
++        // Fill in data from user
++        if(!fillJob(reader, job, connectorBundle, frameworkBundle)) {
++          return null;
++        }
++
++        // Try to create
++        status = client.createJob(job);
++      } while(!status.canProceed());
++    } else {
++      JobDynamicFormOptions options = new JobDynamicFormOptions();
++      options.prepareOptions(job);
++      CommandLine line = FormOptions.parseOptions(options, 0, args, false);
++      if (fillJob(line, job)) {
++        status = client.createJob(job);
++        if (!status.canProceed()) {
++          printJobValidationMessages(job);
++          return null;
++        }
++      } else {
++        printJobValidationMessages(job);
++        return null;
+       }
++    }
+ 
+-      // Try to create
+-      status = client.createJob(job);
+-    } while(!status.canProceed());
+     FormDisplayer.displayFormWarning(job);
+     printlnResource(Constants.RES_CREATE_JOB_SUCCESSFUL, status.name(), job.getPersistenceId());
++
++    return status;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/DeleteConnectionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/DeleteConnectionFunction.java
+index c123732..54d8e9a 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/DeleteConnectionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/DeleteConnectionFunction.java
+@@ -20,12 +20,14 @@
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class DeleteConnectionFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   public DeleteConnectionFunction() {
+@@ -36,15 +38,18 @@ public DeleteConnectionFunction() {
+       .create('x'));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_XID)) {
+       printlnResource(Constants.RES_ARGS_XID_MISSING);
+-      return null;
++      return false;
+     }
++    return true;
++  }
+ 
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     client.deleteConnection(getLong(line, Constants.OPT_XID));
+-
+-    return null;
++    return Status.FINE;
+   }
+-
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/DeleteJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/DeleteJobFunction.java
+index d4095b7..f3ae59d 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/DeleteJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/DeleteJobFunction.java
+@@ -19,18 +19,17 @@
+ 
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.sqoop.client.request.JobRequest;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+ /**
+  * Handles deletion of a job object.
+  */
++@SuppressWarnings("serial")
+ public class DeleteJobFunction extends SqoopFunction {
+ 
+-  private JobRequest jobRequest;
+-
+   @SuppressWarnings("static-access")
+   public DeleteJobFunction() {
+     this.addOption(OptionBuilder
+@@ -40,19 +39,18 @@ public DeleteJobFunction() {
+       .create('j'));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_JID)) {
+       printlnResource(Constants.RES_ARGS_JID_MISSING);
+-      return null;
+-    }
+-
+-    if (jobRequest == null) {
+-      jobRequest = new JobRequest();
++      return false;
+     }
++    return true;
++  }
+ 
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     client.deleteJob(getLong(line, Constants.OPT_JID));
+-
+-    return null;
++    return Status.FINE;
+   }
+-
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/DisableConnectionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/DisableConnectionFunction.java
+index f119660..6f07c32 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/DisableConnectionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/DisableConnectionFunction.java
+@@ -20,12 +20,14 @@
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+ /**
+  * Handles enabling of a connection object
+  */
++@SuppressWarnings("serial")
+ public class DisableConnectionFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   public DisableConnectionFunction() {
+@@ -36,14 +38,18 @@ public DisableConnectionFunction() {
+       .create('x'));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_XID)) {
+       printlnResource(Constants.RES_ARGS_XID_MISSING);
+-      return null;
++      return false;
+     }
++    return true;
++  }
+ 
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     client.enableConnection(getLong(line, Constants.OPT_XID), false);
+-
+-    return null;
++    return Status.FINE;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/DisableJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/DisableJobFunction.java
+index a87e51f..9e46804 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/DisableJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/DisableJobFunction.java
+@@ -19,18 +19,17 @@
+ 
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.sqoop.client.request.JobRequest;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+ /**
+  * Handles disabling of a job object.
+  */
++@SuppressWarnings("serial")
+ public class DisableJobFunction extends SqoopFunction {
+ 
+-  private JobRequest jobRequest;
+-
+   @SuppressWarnings("static-access")
+   public DisableJobFunction() {
+     this.addOption(OptionBuilder
+@@ -40,18 +39,18 @@ public DisableJobFunction() {
+       .create('j'));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_JID)) {
+       printlnResource(Constants.RES_ARGS_JID_MISSING);
+-      return null;
+-    }
+-
+-    if (jobRequest == null) {
+-      jobRequest = new JobRequest();
++      return false;
+     }
++    return true;
++  }
+ 
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     client.enableJob(getLong(line, Constants.OPT_JID), false);
+-
+-    return null;
++    return Status.FINE;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/EnableConnectionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/EnableConnectionFunction.java
+index f782b16..9256712 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/EnableConnectionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/EnableConnectionFunction.java
+@@ -20,12 +20,14 @@
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+ /**
+  * Handles enabling of a connection object
+  */
++@SuppressWarnings("serial")
+ public class EnableConnectionFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   public EnableConnectionFunction() {
+@@ -36,14 +38,18 @@ public EnableConnectionFunction() {
+       .create('x'));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_XID)) {
+       printlnResource(Constants.RES_ARGS_XID_MISSING);
+-      return null;
++      return false;
+     }
++    return true;
++  }
+ 
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     client.enableConnection(getLong(line, Constants.OPT_XID), true);
+-
+-    return null;
++    return Status.FINE;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/EnableJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/EnableJobFunction.java
+index 20c80dc..e4db06e 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/EnableJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/EnableJobFunction.java
+@@ -19,18 +19,17 @@
+ 
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.sqoop.client.request.JobRequest;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+ /**
+  * Handles disabling of a job object.
+  */
++@SuppressWarnings("serial")
+ public class EnableJobFunction extends SqoopFunction {
+ 
+-  private JobRequest jobRequest;
+-
+   @SuppressWarnings("static-access")
+   public EnableJobFunction() {
+     this.addOption(OptionBuilder
+@@ -40,18 +39,18 @@ public EnableJobFunction() {
+       .create('j'));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_JID)) {
+       printlnResource(Constants.RES_ARGS_JID_MISSING);
+-      return null;
+-    }
+-
+-    if (jobRequest == null) {
+-      jobRequest = new JobRequest();
++      return false;
+     }
++    return true;
++  }
+ 
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     client.enableJob(getLong(line, Constants.OPT_JID), true);
+-
+-    return null;
++    return Status.FINE;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/SetOptionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/SetOptionFunction.java
+index 1c43dce..5a15a54 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/SetOptionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/SetOptionFunction.java
+@@ -20,12 +20,14 @@
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class SetOptionFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   protected SetOptionFunction() {
+@@ -39,7 +41,21 @@ protected SetOptionFunction() {
+       .create(Constants.OPT_VALUE_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
++    if (!line.hasOption(Constants.OPT_NAME)) {
++      printlnResource(Constants.RES_ARGS_NAME_MISSING);
++      return false;
++    }
++    if (!line.hasOption(Constants.OPT_VALUE)) {
++      printlnResource(Constants.RES_ARGS_VALUE_MISSING);
++      return false;
++    }
++    return true;
++  }
++
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (!line.hasOption(Constants.OPT_NAME)) {
+       printlnResource(Constants.RES_ARGS_NAME_MISSING);
+       return null;
+@@ -49,12 +65,10 @@ public Object executeFunction(CommandLine line) {
+       return null;
+     }
+ 
+-    handleOptionSetting(line.getOptionValue(Constants.OPT_NAME), line.getOptionValue(Constants.OPT_VALUE));
+-
+-    return null;
++    return handleOptionSetting(line.getOptionValue(Constants.OPT_NAME), line.getOptionValue(Constants.OPT_VALUE));
+   }
+ 
+-  private void handleOptionSetting(String name, String value) {
++  private Status handleOptionSetting(String name, String value) {
+     if(name.equals(Constants.OPT_VERBOSE)) {
+       boolean newValue = false;
+ 
+@@ -64,7 +78,7 @@ private void handleOptionSetting(String name, String value) {
+ 
+       setVerbose(newValue);
+       printlnResource(Constants.RES_SET_VERBOSE_CHANGED, newValue);
+-      return;
++      return Status.FINE;
+     }
+ 
+     if (name.equals(Constants.OPT_POLL_TIMEOUT)) {
+@@ -79,9 +93,10 @@ private void handleOptionSetting(String name, String value) {
+ 
+       setPollTimeout(newValue);
+       printlnResource(Constants.RES_SET_POLL_TIMEOUT_CHANGED, newValue);
+-      return;
++      return Status.FINE;
+     }
+ 
+     printlnResource(Constants.RES_SET_UNKNOWN_OPT_IGNORED, name);
++    return null;
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/SetServerFunction.java b/shell/src/main/java/org/apache/sqoop/shell/SetServerFunction.java
+index abd9cea..af99480 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/SetServerFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/SetServerFunction.java
+@@ -20,6 +20,7 @@
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+@@ -45,12 +46,17 @@ protected SetServerFunction() {
+         .create(Constants.OPT_URL_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (line.getArgs().length == 1) {
+       printlnResource(Constants.RES_SET_SERVER_USAGE);
+-      return null;
++      return false;
+     }
++    return true;
++  }
+ 
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.hasOption(Constants.OPT_URL)) {
+       setServerUrl(line.getOptionValue(Constants.OPT_URL));
+ 
+@@ -73,6 +79,7 @@ public Object executeFunction(CommandLine line) {
+     }
+ 
+     printlnResource(Constants.RES_SET_SERVER_SUCCESSFUL);
+-    return null;
++
++    return Status.FINE;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/ShowConnectionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/ShowConnectionFunction.java
+index b55d5d1..6e5c9b5 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/ShowConnectionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/ShowConnectionFunction.java
+@@ -22,6 +22,7 @@
+ import org.apache.sqoop.model.MConnection;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.apache.sqoop.shell.utils.TableDisplayer;
++import org.apache.sqoop.validation.Status;
+ 
+ import java.text.DateFormat;
+ import java.util.LinkedList;
+@@ -33,6 +34,7 @@
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class ShowConnectionFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   protected ShowConnectionFunction() {
+@@ -46,7 +48,8 @@ protected ShowConnectionFunction() {
+         .create(Constants.OPT_XID_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.hasOption(Constants.OPT_ALL)) {
+       showConnections();
+     } else if (line.hasOption(Constants.OPT_XID)) {
+@@ -55,7 +58,7 @@ public Object executeFunction(CommandLine line) {
+       showSummary();
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ 
+   private void showSummary() {
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/ShowConnectorFunction.java b/shell/src/main/java/org/apache/sqoop/shell/ShowConnectorFunction.java
+index 97a4ab2..7b9b00c 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/ShowConnectorFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/ShowConnectorFunction.java
+@@ -26,6 +26,7 @@
+ import org.apache.sqoop.model.MConnector;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.apache.sqoop.shell.utils.TableDisplayer;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ import static org.apache.sqoop.shell.utils.FormDisplayer.*;
+@@ -44,7 +45,8 @@ protected ShowConnectorFunction() {
+         .create(Constants.OPT_CID_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.hasOption(Constants.OPT_ALL)) {
+       showConnectors();
+     } else if (line.hasOption(Constants.OPT_CID)) {
+@@ -53,7 +55,7 @@ public Object executeFunction(CommandLine line) {
+       showSummary();
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ 
+   private void showSummary() {
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/ShowFrameworkFunction.java b/shell/src/main/java/org/apache/sqoop/shell/ShowFrameworkFunction.java
+index 28497db..6e43072 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/ShowFrameworkFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/ShowFrameworkFunction.java
+@@ -20,6 +20,7 @@
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.sqoop.model.MFramework;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import java.util.ResourceBundle;
+ 
+@@ -29,20 +30,24 @@
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class ShowFrameworkFunction extends SqoopFunction {
+-  @SuppressWarnings("static-access")
+   protected ShowFrameworkFunction() {
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (line.getArgs().length != 0) {
+       printlnResource(Constants.RES_SHOW_FRAMEWORK_USAGE);
+-      return null;
++      return false;
+     }
++    return true;
++  }
+ 
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     showFramework();
+-
+-    return null;
++    return Status.FINE;
+   }
+ 
+   private void showFramework() {
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/ShowJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/ShowJobFunction.java
+index da4a4ff..9a5386c 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/ShowJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/ShowJobFunction.java
+@@ -22,6 +22,7 @@
+ import org.apache.sqoop.model.MJob;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.apache.sqoop.shell.utils.TableDisplayer;
++import org.apache.sqoop.validation.Status;
+ 
+ import java.text.DateFormat;
+ import java.util.LinkedList;
+@@ -33,6 +34,7 @@
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class ShowJobFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   protected ShowJobFunction() {
+@@ -46,7 +48,8 @@ protected ShowJobFunction() {
+         .create(Constants.OPT_JID_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.hasOption(Constants.OPT_ALL)) {
+       showJobs();
+     } else if (line.hasOption(Constants.OPT_JID)) {
+@@ -55,7 +58,7 @@ public Object executeFunction(CommandLine line) {
+       showSummary();
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ 
+   private void showSummary() {
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/ShowOptionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/ShowOptionFunction.java
+index 5e3c3ff..920e659 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/ShowOptionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/ShowOptionFunction.java
+@@ -20,12 +20,14 @@
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+ /**
+  * Show client internal options
+  */
++@SuppressWarnings("serial")
+ public class ShowOptionFunction extends SqoopFunction {
+   /**
+    * Construct new object.
+@@ -39,15 +41,20 @@ protected ShowOptionFunction() {
+         .create(Constants.OPT_NAME_CHAR));
+   }
+ 
+-  /**
+-   * Execute this function from parsed command line.
+-   */
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (line.getArgs().length == 1) {
+       printAllOptions();
+-      return null;
++      return false;
+     }
++    return true;
++  }
+ 
++  /**
++   * Execute this function from parsed command line.
++   */
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.hasOption(Constants.OPT_NAME)) {
+       String optionName = line.getOptionValue(Constants.OPT_NAME);
+ 
+@@ -58,9 +65,12 @@ public Object executeFunction(CommandLine line) {
+       if(optionName.equals(Constants.OPT_POLL_TIMEOUT)) {
+         printPollTimeout();
+       }
++    } else {
++      printAllOptions();
++      return null;
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ 
+   /**
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/ShowServerFunction.java b/shell/src/main/java/org/apache/sqoop/shell/ShowServerFunction.java
+index ec97e63..23016ee 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/ShowServerFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/ShowServerFunction.java
+@@ -20,6 +20,7 @@
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+@@ -45,12 +46,17 @@ protected ShowServerFunction() {
+         .create(Constants.OPT_WEBAPP_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (line.getArgs().length == 1) {
+       printlnResource(Constants.RES_SHOW_SERVER_USAGE);
+-      return null;
++      return false;
+     }
++    return true;
++  }
+ 
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.hasOption(Constants.OPT_ALL)) {
+       showServer(true, true, true, true);
+ 
+@@ -69,7 +75,7 @@ public Object executeFunction(CommandLine line) {
+       showServer(host, port, webapp, version);
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ 
+   private void showServer(boolean host, boolean port, boolean webapp, boolean version) {
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/ShowSubmissionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/ShowSubmissionFunction.java
+index a592a98..be50cef 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/ShowSubmissionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/ShowSubmissionFunction.java
+@@ -26,9 +26,11 @@
+ import org.apache.sqoop.shell.core.Constants;
+ import org.apache.sqoop.shell.utils.SubmissionDisplayer;
+ import org.apache.sqoop.shell.utils.TableDisplayer;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
++@SuppressWarnings("serial")
+ public class ShowSubmissionFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   protected ShowSubmissionFunction() {
+@@ -43,7 +45,7 @@ protected ShowSubmissionFunction() {
+   }
+ 
+   @Override
+-  public Object executeFunction(CommandLine line) {
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.hasOption(Constants.OPT_DETAIL)) {
+       if (line.hasOption(Constants.OPT_JID)) {
+         showSubmissions(getLong(line, Constants.OPT_JID));
+@@ -58,7 +60,7 @@ public Object executeFunction(CommandLine line) {
+       }
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ 
+   private void showSummary(Long jid) {
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/ShowVersionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/ShowVersionFunction.java
+index 764b754..f0919d3 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/ShowVersionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/ShowVersionFunction.java
+@@ -25,6 +25,7 @@
+ import org.apache.sqoop.common.VersionInfo;
+ import org.apache.sqoop.json.VersionBean;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.validation.Status;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+@@ -53,7 +54,8 @@ protected ShowVersionFunction() {
+         .create(Constants.OPT_PROTOCOL_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.getArgs().length == 1) {
+       printlnResource(Constants.RES_SHOW_VERSION_USAGE);
+       return null;
+@@ -77,7 +79,7 @@ public Object executeFunction(CommandLine line) {
+       showVersion(server, client, protocol);
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ 
+   private void showVersion(boolean server, boolean client, boolean protocol) {
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/SqoopFunction.java b/shell/src/main/java/org/apache/sqoop/shell/SqoopFunction.java
+index 675a796..5d69c2a 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/SqoopFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/SqoopFunction.java
+@@ -17,17 +17,15 @@
+  */
+ package org.apache.sqoop.shell;
+ 
+-import java.util.Iterator;
++import java.io.IOException;
+ import java.util.List;
+ 
+ import org.apache.commons.cli.CommandLine;
+-import org.apache.commons.cli.CommandLineParser;
+-import org.apache.commons.cli.GnuParser;
+ import org.apache.commons.cli.HelpFormatter;
+ import org.apache.commons.cli.Options;
+-import org.apache.commons.cli.ParseException;
+ import org.apache.sqoop.common.SqoopException;
+ import org.apache.sqoop.shell.core.ShellError;
++import org.apache.sqoop.shell.utils.FormOptions;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+@@ -39,33 +37,24 @@ public void printHelp() {
+     formatter.printOptions(getIo().out, formatter.getWidth(), this, 0, 4);
+   }
+ 
+-  public abstract Object executeFunction(CommandLine line);
++  public abstract Object executeFunction(CommandLine line, boolean isInteractive) throws IOException;
+ 
+-  public Object execute(List<String> args) {
+-    CommandLine line = parseOptions(this, 1, args);
+-    return executeFunction(line);
++  public boolean validateArgs(CommandLine line) {
++    return true;
+   }
+ 
+-  protected CommandLine parseOptions(Options options, int start, List<String> arglist) {
+-    Iterator<String> iterator = arglist.iterator();
+-    int i = 0;
+-    for (; i < start; i ++) {
+-      iterator.next();
+-    }
+-
+-    String[] args = new String[arglist.size() - start];
+-    for (; i < arglist.size(); i ++) {
+-      args[i - start] = iterator.next();
+-    }
++  public Object execute(List<String> args) {
++    CommandLine line = FormOptions.parseOptions(this, 1, args, true);
+ 
+-    CommandLineParser parser = new GnuParser();
+-    CommandLine line;
+     try {
+-      line = parser.parse(options, args);
+-    } catch (ParseException e) {
+-      throw new SqoopException(ShellError.SHELL_0003, e.getMessage(), e);
++      if (validateArgs(line)) {
++        return executeFunction(line, isInteractive());
++      } else {
++        return null;
++      }
++    } catch (IOException ex) {
++      throw new SqoopException(ShellError.SHELL_0005, ex);
+     }
+-    return line;
+   }
+ 
+   protected long getLong(CommandLine line, String parameterName) {
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/SqoopShell.java b/shell/src/main/java/org/apache/sqoop/shell/SqoopShell.java
+index 900c0e5..2e87965 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/SqoopShell.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/SqoopShell.java
+@@ -164,8 +164,9 @@ private static void interpretFileContent(File script, Groovysh shell) throws IOE
+ 
+       // Manually trigger command line parsing
+       Object result = shell.execute(line);
+-      if (result != null) {
+-        println(result);
++
++      if (result == null) {
++        break;
+       }
+     }
+   }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/StartCommand.java b/shell/src/main/java/org/apache/sqoop/shell/StartCommand.java
+index f03e08f..914454f 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/StartCommand.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/StartCommand.java
+@@ -30,7 +30,6 @@
+ 
+   private StartJobFunction startJobFunction;
+ 
+-  @SuppressWarnings("static-access")
+   protected StartCommand(Shell shell) {
+     super(shell, Constants.CMD_START, Constants.CMD_START_SC,
+         new String[] {Constants.FN_JOB}, Constants.PRE_START, null);
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/StartJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/StartJobFunction.java
+index 02148de..4363f05 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/StartJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/StartJobFunction.java
+@@ -30,7 +30,9 @@
+ import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.apache.sqoop.shell.utils.SubmissionDisplayer;
++import org.apache.sqoop.validation.Status;
+ 
++@SuppressWarnings("serial")
+ public class StartJobFunction extends SqoopFunction {
+   public static final Logger LOG = Logger.getLogger(StartJobFunction.class);
+ 
+@@ -47,7 +49,7 @@ public StartJobFunction() {
+   }
+ 
+   @Override
+-  public Object executeFunction(CommandLine line) {
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     // Poll until finished
+     if (line.hasOption(Constants.OPT_SYNCHRONOUS) && line.hasOption(Constants.OPT_JID)) {
+       long pollTimeout = getPollTimeout();
+@@ -72,7 +74,7 @@ public void finished(MSubmission submission) {
+       try {
+         client.startSubmission(getLong(line, Constants.OPT_JID), callback, pollTimeout);
+       } catch (InterruptedException e) {
+-        throw new SqoopException(ShellError.SHELL_0008, e);
++        throw new SqoopException(ShellError.SHELL_0007, e);
+       }
+     } else if (line.hasOption(Constants.OPT_JID)) {
+       MSubmission submission = client.startSubmission(getLong(line, Constants.OPT_JID));
+@@ -82,8 +84,10 @@ public void finished(MSubmission submission) {
+         SubmissionDisplayer.displayHeader(submission);
+         SubmissionDisplayer.displayProgress(submission);
+       }
++    } else {
++      return null;
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/StatusCommand.java b/shell/src/main/java/org/apache/sqoop/shell/StatusCommand.java
+index 184892a..ebd4548 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/StatusCommand.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/StatusCommand.java
+@@ -28,7 +28,6 @@
+ 
+   private StatusJobFunction statusJobFunction;
+ 
+-  @SuppressWarnings("static-access")
+   protected StatusCommand(Shell shell) {
+     super(shell, Constants.CMD_STATUS, Constants.CMD_STATUS_SC,
+         new String[] { Constants.FN_JOB }, Constants.PRE_STATUS, null);
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/StatusJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/StatusJobFunction.java
+index be0de8c..fb83af3 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/StatusJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/StatusJobFunction.java
+@@ -26,8 +26,10 @@
+ import org.apache.sqoop.shell.core.Constants;
+ import org.apache.sqoop.shell.utils.SubmissionDisplayer;
+ import org.apache.sqoop.submission.SubmissionStatus;
++import org.apache.sqoop.validation.Status;
+ 
+-public class StatusJobFunction extends SqoopFunction{
++@SuppressWarnings("serial")
++public class StatusJobFunction extends SqoopFunction {
+ 
+   @SuppressWarnings("static-access")
+   public StatusJobFunction() {
+@@ -38,7 +40,7 @@ public StatusJobFunction() {
+   }
+ 
+   @Override
+-  public Object executeFunction(CommandLine line) {
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.hasOption(Constants.OPT_JID)) {
+       MSubmission submission = client.getSubmissionStatus(getLong(line, Constants.OPT_JID));
+       if(submission.getStatus().isFailure() || submission.getStatus().equals(SubmissionStatus.SUCCEEDED)) {
+@@ -48,8 +50,10 @@ public Object executeFunction(CommandLine line) {
+         SubmissionDisplayer.displayHeader(submission);
+         SubmissionDisplayer.displayProgress(submission);
+       }
++    } else {
++      return null;
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/StopCommand.java b/shell/src/main/java/org/apache/sqoop/shell/StopCommand.java
+index 698bca7..65a454b 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/StopCommand.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/StopCommand.java
+@@ -28,7 +28,6 @@
+ 
+   private StopJobFunction stopJobFunction;
+ 
+-  @SuppressWarnings("static-access")
+   protected StopCommand(Shell shell) {
+     super(shell, Constants.CMD_STOP, Constants.CMD_STOP_SC,
+         new String[] { Constants.FN_JOB }, Constants.PRE_STOP, null);
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/StopJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/StopJobFunction.java
+index 6c0e3c2..790c522 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/StopJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/StopJobFunction.java
+@@ -25,9 +25,10 @@
+ import org.apache.sqoop.model.MSubmission;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.apache.sqoop.shell.utils.SubmissionDisplayer;
++import org.apache.sqoop.validation.Status;
+ 
++@SuppressWarnings("serial")
+ public class StopJobFunction extends SqoopFunction {
+-
+   @SuppressWarnings("static-access")
+   public StopJobFunction() {
+     this.addOption(OptionBuilder.hasArg().withArgName(Constants.OPT_JID)
+@@ -37,7 +38,7 @@ public StopJobFunction() {
+   }
+ 
+   @Override
+-  public Object executeFunction(CommandLine line) {
++  public Object executeFunction(CommandLine line, boolean isInteractive) {
+     if (line.hasOption(Constants.OPT_JID)) {
+       MSubmission submission = client.stopSubmission(getLong(line, Constants.OPT_JID));
+       if(submission.getStatus().isFailure()) {
+@@ -46,8 +47,10 @@ public Object executeFunction(CommandLine line) {
+         SubmissionDisplayer.displayHeader(submission);
+         SubmissionDisplayer.displayProgress(submission);
+       }
++    } else {
++      return null;
+     }
+ 
+-    return null;
++    return Status.FINE;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/UpdateCommand.java b/shell/src/main/java/org/apache/sqoop/shell/UpdateCommand.java
+index 9262ccd..24f31ea 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/UpdateCommand.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/UpdateCommand.java
+@@ -17,8 +17,6 @@
+  */
+ package org.apache.sqoop.shell;
+ 
+-import org.apache.sqoop.common.SqoopException;
+-import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.codehaus.groovy.tools.shell.Shell;
+ 
+@@ -41,10 +39,6 @@ public UpdateCommand(Shell shell) {
+   }
+ 
+   public Object executeCommand(List args) {
+-    if(!isInteractive()) {
+-      throw new SqoopException(ShellError.SHELL_0007, "update");
+-    }
+-
+     if (args.size() == 0) {
+       printlnResource(Constants.RES_UPDATE_USAGE, getUsage());
+       return null;
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/UpdateConnectionFunction.java b/shell/src/main/java/org/apache/sqoop/shell/UpdateConnectionFunction.java
+index c062fe6..8fa1bda 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/UpdateConnectionFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/UpdateConnectionFunction.java
+@@ -20,14 +20,15 @@
+ import jline.ConsoleReader;
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.sqoop.common.SqoopException;
+ import org.apache.sqoop.model.MConnection;
+-import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
++import org.apache.sqoop.shell.utils.ConnectionDynamicFormOptions;
+ import org.apache.sqoop.shell.utils.FormDisplayer;
++import org.apache.sqoop.shell.utils.FormOptions;
+ import org.apache.sqoop.validation.Status;
+ 
+ import java.io.IOException;
++import java.util.List;
+ import java.util.ResourceBundle;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+@@ -36,6 +37,7 @@
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class UpdateConnectionFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   public UpdateConnectionFunction() {
+@@ -46,22 +48,22 @@ public UpdateConnectionFunction() {
+       .create(Constants.OPT_XID_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_XID)) {
+       printlnResource(Constants.RES_ARGS_XID_MISSING);
+-      return null;
+-    }
+-
+-    try {
+-      updateConnection(getLong(line, Constants.OPT_XID));
+-    } catch (IOException ex) {
+-      throw new SqoopException(ShellError.SHELL_0005, ex);
++      return false;
+     }
++    return true;
++  }
+ 
+-    return null;
++  @Override
++  @SuppressWarnings("unchecked")
++  public Object executeFunction(CommandLine line, boolean isInteractive) throws IOException {
++    return updateConnection(getLong(line, Constants.OPT_XID), line.getArgList(), isInteractive);
+   }
+ 
+-  private void updateConnection(Long connectionId) throws IOException {
++  private Status updateConnection(Long connectionId, List<String> args, boolean isInteractive) throws IOException {
+     printlnResource(Constants.RES_UPDATE_UPDATING_CONN, connectionId);
+ 
+     ConsoleReader reader = new ConsoleReader();
+@@ -73,25 +75,41 @@ private void updateConnection(Long connectionId) throws IOException {
+ 
+     Status status = Status.FINE;
+ 
+-    printlnResource(Constants.RES_PROMPT_UPDATE_CONN_METADATA);
+-
+-    do {
+-      // Print error introduction if needed
+-      if( !status.canProceed() ) {
+-        errorIntroduction();
+-      }
+-
+-      // Fill in data from user
+-      if(!fillConnection(reader, connection, connectorBundle, frameworkBundle)) {
+-        return;
++    if (isInteractive) {
++      printlnResource(Constants.RES_PROMPT_UPDATE_CONN_METADATA);
++
++      do {
++        // Print error introduction if needed
++        if( !status.canProceed() ) {
++          errorIntroduction();
++        }
++
++        // Fill in data from user
++        if(!fillConnection(reader, connection, connectorBundle, frameworkBundle)) {
++          return null;
++        }
++
++        // Try to create
++        status = client.updateConnection(connection);
++      } while(!status.canProceed());
++    } else {
++      ConnectionDynamicFormOptions options = new ConnectionDynamicFormOptions();
++      options.prepareOptions(connection);
++      CommandLine line = FormOptions.parseOptions(options, 0, args, false);
++      if (fillConnection(line, connection)) {
++        status = client.updateConnection(connection);
++        if (!status.canProceed()) {
++          printConnectionValidationMessages(connection);
++          return null;
++        }
++      } else {
++        printConnectionValidationMessages(connection);
++        return null;
+       }
+-
+-      // Try to create
+-      status = client.updateConnection(connection);
+-    } while(!status.canProceed());
++    }
+     FormDisplayer.displayFormWarning(connection);
+     printlnResource(Constants.RES_UPDATE_CONN_SUCCESSFUL, status.name());
+-  }
+-
+ 
++    return status;
++  }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/UpdateJobFunction.java b/shell/src/main/java/org/apache/sqoop/shell/UpdateJobFunction.java
+index da1e0c5..b060bb4 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/UpdateJobFunction.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/UpdateJobFunction.java
+@@ -20,14 +20,15 @@
+ import jline.ConsoleReader;
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.sqoop.common.SqoopException;
+ import org.apache.sqoop.model.MJob;
+-import org.apache.sqoop.shell.core.ShellError;
+ import org.apache.sqoop.shell.core.Constants;
+ import org.apache.sqoop.shell.utils.FormDisplayer;
++import org.apache.sqoop.shell.utils.FormOptions;
++import org.apache.sqoop.shell.utils.JobDynamicFormOptions;
+ import org.apache.sqoop.validation.Status;
+ 
+ import java.io.IOException;
++import java.util.List;
+ import java.util.ResourceBundle;
+ 
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+@@ -36,6 +37,7 @@
+ /**
+  *
+  */
++@SuppressWarnings("serial")
+ public class UpdateJobFunction extends SqoopFunction {
+   @SuppressWarnings("static-access")
+   public UpdateJobFunction() {
+@@ -46,22 +48,22 @@ public UpdateJobFunction() {
+       .create(Constants.OPT_JID_CHAR));
+   }
+ 
+-  public Object executeFunction(CommandLine line) {
++  @Override
++  public boolean validateArgs(CommandLine line) {
+     if (!line.hasOption(Constants.OPT_JID)) {
+       printlnResource(Constants.RES_ARGS_JID_MISSING);
+-      return null;
+-    }
+-
+-    try {
+-      updateJob(getLong(line, Constants.OPT_JID));
+-    } catch (IOException ex) {
+-      throw new SqoopException(ShellError.SHELL_0005, ex);
++      return false;
+     }
++    return true;
++  }
+ 
+-    return null;
++  @Override
++  @SuppressWarnings("unchecked")
++  public Object executeFunction(CommandLine line, boolean isInteractive) throws IOException {
++    return updateJob(getLong(line, Constants.OPT_JID), line.getArgList(), isInteractive);
+   }
+ 
+-  private void updateJob(Long jobId) throws IOException {
++  private Status updateJob(Long jobId, List<String> args, boolean isInteractive) throws IOException {
+     printlnResource(Constants.RES_UPDATE_UPDATING_JOB, jobId);
+ 
+     ConsoleReader reader = new ConsoleReader();
+@@ -73,23 +75,42 @@ private void updateJob(Long jobId) throws IOException {
+ 
+     Status status = Status.FINE;
+ 
+-    printlnResource(Constants.RES_PROMPT_UPDATE_JOB_METADATA);
+-
+-    do {
+-      // Print error introduction if needed
+-      if( !status.canProceed() ) {
+-        errorIntroduction();
+-      }
+-
+-      // Fill in data from user
+-      if(!fillJob(reader, job, connectorBundle, frameworkBundle)) {
+-        return;
++    if (isInteractive) {
++      printlnResource(Constants.RES_PROMPT_UPDATE_JOB_METADATA);
++
++      do {
++        // Print error introduction if needed
++        if( !status.canProceed() ) {
++          errorIntroduction();
++        }
++
++        // Fill in data from user
++        if(!fillJob(reader, job, connectorBundle, frameworkBundle)) {
++          return status;
++        }
++
++        // Try to create
++        status = client.updateJob(job);
++      } while(!status.canProceed());
++    } else {
++      JobDynamicFormOptions options = new JobDynamicFormOptions();
++      options.prepareOptions(job);
++      CommandLine line = FormOptions.parseOptions(options, 0, args, false);
++      if (fillJob(line, job)) {
++        status = client.updateJob(job);
++        if (!status.canProceed()) {
++          printJobValidationMessages(job);
++          return status;
++        }
++      } else {
++        printJobValidationMessages(job);
++        return null;
+       }
++    }
+ 
+-      // Try to create
+-      status = client.updateJob(job);
+-    } while(!status.canProceed());
+     FormDisplayer.displayFormWarning(job);
+     printlnResource(Constants.RES_UPDATE_JOB_SUCCESSFUL, status.name());
++
++    return status;
+   }
+ }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/core/ShellError.java b/shell/src/main/java/org/apache/sqoop/shell/core/ShellError.java
+index e5a99f1..7140232 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/core/ShellError.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/core/ShellError.java
+@@ -42,11 +42,8 @@
+   /** There occurred exception on server side **/
+   SHELL_0006("Server has returned exception"),
+ 
+-  /** Command not compatible with batch mode */
+-  SHELL_0007("Command not compatible with batch mode"),
+-
+   /** Job Submission : Cannot sleep */
+-  SHELL_0008("Cannot sleep"),
++  SHELL_0007("Cannot sleep"),
+ 
+   ;
+ 
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/utils/ConnectionDynamicFormOptions.java b/shell/src/main/java/org/apache/sqoop/shell/utils/ConnectionDynamicFormOptions.java
+new file mode 100644
+index 0000000..6b6e858
+--- /dev/null
++++ b/shell/src/main/java/org/apache/sqoop/shell/utils/ConnectionDynamicFormOptions.java
+@@ -0,0 +1,44 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.sqoop.shell.utils;
++
++import org.apache.commons.cli.Option;
++import org.apache.commons.cli.OptionBuilder;
++import org.apache.sqoop.model.MConnection;
++
++/**
++ * Automatically create dynamic options for connections.
++ */
++@SuppressWarnings("serial")
++public class ConnectionDynamicFormOptions extends DynamicFormOptions<MConnection> {
++
++  @SuppressWarnings("static-access")
++  @Override
++  public void prepareOptions(MConnection connection) {
++    this.addOption(OptionBuilder
++                  .withLongOpt("name")
++                  .hasArg()
++                  .create());
++    for (Option option : FormOptions.getFormsOptions("connector", connection.getConnectorPart().getForms())) {
++      this.addOption(option);
++    }
++    for (Option option : FormOptions.getFormsOptions("framework", connection.getFrameworkPart().getForms())) {
++      this.addOption(option);
++    }
++  }
++}
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/utils/DynamicFormOptions.java b/shell/src/main/java/org/apache/sqoop/shell/utils/DynamicFormOptions.java
+new file mode 100644
+index 0000000..cc63610
+--- /dev/null
++++ b/shell/src/main/java/org/apache/sqoop/shell/utils/DynamicFormOptions.java
+@@ -0,0 +1,35 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.sqoop.shell.utils;
++
++import org.apache.commons.cli.Options;
++
++/**
++ * Automatically create options for different components.
++ */
++@SuppressWarnings("serial")
++public abstract class DynamicFormOptions<M> extends Options {
++
++  /**
++   * Create dynamic options.
++   *
++   * @param model generate options from this
++   * @return this
++   */
++  public abstract void prepareOptions(M model);
++}
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/utils/FormFiller.java b/shell/src/main/java/org/apache/sqoop/shell/utils/FormFiller.java
+index 9bc0b93..c491ae5 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/utils/FormFiller.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/utils/FormFiller.java
+@@ -18,6 +18,9 @@
+ package org.apache.sqoop.shell.utils;
+ 
+ import jline.ConsoleReader;
++
++import org.apache.commons.cli.CommandLine;
++import org.apache.commons.lang.StringUtils;
+ import org.apache.sqoop.model.MBooleanInput;
+ import org.apache.sqoop.model.MConnection;
+ import org.apache.sqoop.model.MEnumInput;
+@@ -26,6 +29,7 @@
+ import org.apache.sqoop.model.MIntegerInput;
+ import org.apache.sqoop.model.MMapInput;
+ import org.apache.sqoop.model.MJob;
++import org.apache.sqoop.model.MNamedElement;
+ import org.apache.sqoop.model.MStringInput;
+ import org.apache.sqoop.model.MValidatedElement;
+ 
+@@ -38,7 +42,7 @@
+ import static org.apache.sqoop.shell.ShellEnvironment.*;
+ 
+ /**
+- * Convenient methods for retrieving user input.
++ * Convenient methods for retrieving user input and CLI options.
+  */
+ public final class FormFiller {
+ 
+@@ -49,6 +53,26 @@
+   private static MStringInput nameInput = new MStringInput("object-name", false, (short)25);
+ 
+   /**
++   * Fill job object based on CLI options.
++   *
++   * @param reader Associated console reader object
++   * @param job Job that user is suppose to fill in
++   * @return True if we filled all inputs, false if user has stopped processing
++   * @throws IOException
++   */
++  public static boolean fillJob(CommandLine line,
++                                MJob job)
++                                throws IOException {
++
++    job.setName(line.getOptionValue("name"));
++
++    // Fill in data from user
++    return fillForms(line,
++                     job.getConnectorPart().getForms(),
++                     job.getFrameworkPart().getForms());
++  }
++
++  /**
+    * Fill job object based on user input.
+    *
+    * @param reader Associated console reader object
+@@ -67,11 +91,31 @@ public static boolean fillJob(ConsoleReader reader,
+     job.setName(getName(reader, job.getName()));
+ 
+     // Fill in data from user
+-     return fillForms(reader,
+-                      job.getConnectorPart().getForms(),
+-                      connectorBundle,
+-                      job.getFrameworkPart().getForms(),
+-                      frameworkBundle);
++    return fillForms(reader,
++                     job.getConnectorPart().getForms(),
++                     connectorBundle,
++                     job.getFrameworkPart().getForms(),
++                     frameworkBundle);
++  }
++
++  /**
++   * Fill connection object based on CLI options.
++   *
++   * @param line Associated command line options
++   * @param connection Connection that user is suppose to fill in
++   * @return True if we filled all inputs, false if user has stopped processing
++   * @throws IOException
++   */
++  public static boolean fillConnection(CommandLine line,
++                                       MConnection connection)
++                                       throws IOException {
++
++    connection.setName(line.getOptionValue("name"));
++
++    // Fill in data from user
++    return fillForms(line,
++                     connection.getConnectorPart().getForms(),
++                     connection.getFrameworkPart().getForms());
+   }
+ 
+   /**
+@@ -93,11 +137,250 @@ public static boolean fillConnection(ConsoleReader reader,
+     connection.setName(getName(reader, connection.getName()));
+ 
+     // Fill in data from user
+-     return fillForms(reader,
+-                      connection.getConnectorPart().getForms(),
+-                      connectorBundle,
+-                      connection.getFrameworkPart().getForms(),
+-                      frameworkBundle);
++    return fillForms(reader,
++                     connection.getConnectorPart().getForms(),
++                     connectorBundle,
++                     connection.getFrameworkPart().getForms(),
++                     frameworkBundle);
++  }
++
++  /**
++   * Load CLI options for framework forms and connector forms.
++   *
++   * @param line CLI options container
++   * @param connectorForms Connector forms to read or edit
++   * @param frameworkForms Framework forms to read or edit
++   * @return
++   * @throws IOException
++   */
++  public static boolean fillForms(CommandLine line,
++                                  List<MForm> connectorForms,
++                                  List<MForm> frameworkForms)
++                                      throws IOException {
++    // Query connector forms and framework forms
++    return fillForms("connector", connectorForms, line)
++        && fillForms("framework", frameworkForms, line);
++  }
++
++  /**
++   * Load all CLI options for a list of forms.
++   *
++   * @param prefix placed at the beginning of the CLI option key
++   * @param forms Forms to read or edit
++   * @param line CLI options container
++   * @return
++   * @throws IOException
++   */
++  public static boolean fillForms(String prefix,
++                                  List<MForm> forms,
++                                  CommandLine line)
++                                  throws IOException {
++    for (MForm form : forms) {
++      if (!fillForm(prefix, form, line)) {
++        return false;
++      }
++    }
++    return true;
++  }
++
++  /**
++   * Load all CLI options for a particular form.
++   *
++   * @param prefix placed at the beginning of the CLI option key
++   * @param form Form to read or edit
++   * @param line CLI options container
++   * @return
++   * @throws IOException
++   */
++  @SuppressWarnings("rawtypes")
++  public static boolean fillForm(String prefix,
++                                 MForm form,
++                                 CommandLine line) throws IOException {
++    for (MInput input : form.getInputs()) {
++      if (!fillInput(prefix, input, line)) {
++        return false;
++      }
++    }
++    return true;
++  }
++
++  /**
++   * Load CLI option.
++   * Chooses the appropriate 'fill' method to use based on input type.
++   *
++   * Keys for CLI options are automatically created from the 'prefix' argument
++   * and 'input' argument: <prefix>-<form name>-<input name>
++   *
++   * @param prefix placed at the beginning of the CLI option key
++   * @param input Input that we should read or edit
++   * @param line CLI options container
++   * @return
++   * @throws IOException
++   */
++  @SuppressWarnings("rawtypes")
++  public static boolean fillInput(String prefix,
++                                  MInput input,
++                                  CommandLine line) throws IOException {
++    // Based on the input type, let's perform specific load
++    switch (input.getType()) {
++    case STRING:
++      return fillInputString(prefix, (MStringInput) input, line);
++    case INTEGER:
++      return fillInputInteger(prefix, (MIntegerInput) input, line);
++    case BOOLEAN:
++      return fillInputBoolean(prefix, (MBooleanInput) input, line);
++    case MAP:
++      return fillInputMap(prefix, (MMapInput) input, line);
++    case ENUM:
++      return fillInputEnum(prefix, (MEnumInput) input, line);
++    default:
++      println("Unsupported data type " + input.getType());
++      return true;
++    }
++  }
++
++  /**
++   * Load CLI option for enum type.
++   *
++   * Currently only supports numeric values.
++   *
++   * @param prefix placed at the beginning of the CLI option key
++   * @param input Input that we should read or edit
++   * @param line CLI options container
++   * @return
++   * @throws IOException
++   */
++  private static boolean fillInputEnum(String prefix,
++                                       MEnumInput input,
++                                       CommandLine line)
++                                       throws IOException {
++    String opt = FormOptions.getOptionKey(prefix, input);
++    if (line.hasOption(opt)) {
++      String value = line.getOptionValue(opt);
++      int index = java.util.Arrays.asList(input.getValues()).indexOf(value);
++
++      if(index < 0) {
++        errorMessage(input, String.format("Invalid option %s. Please use one of %s.", value, StringUtils.join(input.getValues(), ", ")));
++        return false;
++      }
++
++      input.setValue(value);
++    } else {
++      input.setEmpty();
++    }
++    return true;
++  }
++
++  /**
++   * Load CLI options for map type.
++   *
++   * Parses Key-Value pairs that take the form "<key>=<value>&<key>=<value>&...".
++   *
++   * @param prefix placed at the beginning of the CLI option key
++   * @param input Input that we should read or edit
++   * @param line CLI options container
++   * @return
++   * @throws IOException
++   */
++  private static boolean fillInputMap(String prefix,
++                                      MMapInput input,
++                                      CommandLine line)
++                                      throws IOException {
++    String opt = FormOptions.getOptionKey(prefix, input);
++    if (line.hasOption(opt)) {
++      String value = line.getOptionValue(opt);
++      Map<String, String> values = new HashMap<String, String>();
++      String[] entries = value.split("&");
++      for (String entry : entries) {
++        if (entry.contains("=")) {
++          String[] keyValue = entry.split("=");
++          values.put(keyValue[0], keyValue[1]);
++        } else {
++          errorMessage(input, "Don't know what to do with " + entry);
++          return false;
++        }
++      }
++      input.setValue(values);
++    } else {
++      input.setEmpty();
++    }
++    return true;
++  }
++
++  /**
++   * Load integer input from CLI option.
++   *
++   * @param prefix placed at the beginning of the CLI option key
++   * @param input Input that we should read or edit
++   * @param line CLI options container
++   * @return
++   * @throws IOException
++   */
++  private static boolean fillInputInteger(String prefix,
++                                          MIntegerInput input,
++                                          CommandLine line)
++                                          throws IOException {
++    String opt = FormOptions.getOptionKey(prefix, input);
++    if (line.hasOption(opt)) {
++      try {
++        input.setValue(Integer.valueOf(line.getOptionValue(FormOptions.getOptionKey(prefix, input))));
++      } catch (NumberFormatException ex) {
++        errorMessage(input, "Input is not valid integer number");
++        return false;
++      }
++    } else {
++      input.setEmpty();
++    }
++    return true;
++  }
++
++  /**
++   * Load string input from CLI option.
++   *
++   * @param prefix placed at the beginning of the CLI option key
++   * @param input Input that we should read or edit
++   * @param line CLI options container
++   * @return
++   * @throws IOException
++   */
++  public static boolean fillInputString(String prefix,
++                                        MStringInput input,
++                                        CommandLine line)
++                                        throws IOException {
++    String opt = FormOptions.getOptionKey(prefix, input);
++    if (line.hasOption(opt)) {
++      String value = line.getOptionValue(FormOptions.getOptionKey(prefix, input));
++      if(value.length() > input.getMaxLength()) {
++        errorMessage(input, "Size of input exceeds allowance for this input"
++          + " field. Maximal allowed size is " + input.getMaxLength());
++      }
++      input.setValue(value);
++    } else {
++      input.setEmpty();
++    }
++    return true;
++  }
++
++  /**
++   * Load boolean input from CLI option.
++   *
++   * @param prefix placed at the beginning of the CLI option key
++   * @param input Input that we should read or edit
++   * @param line CLI options container
++   * @return
++   * @throws IOException
++   */
++  public static boolean fillInputBoolean(String prefix,
++                                         MBooleanInput input,
++                                         CommandLine line)
++                                         throws IOException {
++    String opt = FormOptions.getOptionKey(prefix, input);
++    if (line.hasOption(opt)) {
++      input.setValue(Boolean.valueOf(line.getOptionValue(FormOptions.getOptionKey(prefix, input))));
++    } else {
++      input.setEmpty();
++    }
++    return true;
+   }
+ 
+   public static boolean fillForms(ConsoleReader reader,
+@@ -134,6 +417,7 @@ public static boolean fillForms(List<MForm> forms,
+     return true;
+   }
+ 
++  @SuppressWarnings("rawtypes")
+   public static boolean fillForm(MForm form,
+                                  ConsoleReader reader,
+                                  ResourceBundle bundle) throws IOException {
+@@ -141,7 +425,7 @@ public static boolean fillForm(MForm form,
+     println(bundle.getString(form.getLabelKey()));
+ 
+     // Print out form validation
+-    printValidationMessage(form);
++    printValidationMessage(form, false);
+     println("");
+ 
+     for (MInput input : form.getInputs()) {
+@@ -153,11 +437,12 @@ public static boolean fillForm(MForm form,
+     return true;
+   }
+ 
++  @SuppressWarnings("rawtypes")
+   public static boolean fillInput(MInput input,
+                                   ConsoleReader reader,
+                                   ResourceBundle bundle) throws IOException {
+     // Print out validation
+-    printValidationMessage(input);
++    printValidationMessage(input, false);
+ 
+     // Based on the input type, let's perform specific load
+     switch (input.getType()) {
+@@ -507,6 +792,7 @@ public static boolean fillInputBoolean(MBooleanInput input,
+     return true;
+   }
+ 
++  @SuppressWarnings("rawtypes")
+   public static void generatePrompt(ConsoleReader reader,
+                                     ResourceBundle bundle,
+                                     MInput input)
+@@ -533,13 +819,21 @@ public static String getName(ConsoleReader reader,
+    *
+    * @param element Validated element
+    */
+-  public static void printValidationMessage(MValidatedElement element) {
++  public static void printValidationMessage(MValidatedElement element, boolean includeInputPrefix) {
+     switch (element.getValidationStatus()) {
+       case UNACCEPTABLE:
+-        errorMessage(element.getValidationMessage());
++        if (includeInputPrefix) {
++          errorMessage(element, element.getValidationMessage());
++        } else {
++          errorMessage(element.getValidationMessage());
++        }
+         break;
+       case ACCEPTABLE:
+-        warningMessage(element.getValidationMessage());
++        if (includeInputPrefix) {
++          warningMessage(element, element.getValidationMessage());
++        } else {
++          warningMessage(element.getValidationMessage());
++        }
+         break;
+       default:
+         // Simply ignore all other states for the moment
+@@ -551,15 +845,53 @@ public static void errorMessage(String message) {
+     println("Error message: @|red " + message + " |@");
+   }
+ 
++  public static void errorMessage(MNamedElement input, String message) {
++    print(input.getName());
++    print(": ");
++    errorMessage(message);
++  }
++
+   public static void warningMessage(String message) {
+     println("Warning message: @|yellow " + message + " |@");
+   }
+ 
++  public static void warningMessage(MNamedElement input, String message) {
++    print(input.getName());
++    print(": ");
++    warningMessage(message);
++  }
++
+   public static void errorIntroduction() {
+     println();
+     println("@|red There are issues with entered data, please revise your input:|@");
+   }
+ 
++  public static void printConnectionValidationMessages(MConnection connection) {
++    for (MForm form : connection.getConnectorPart().getForms()) {
++      for (MInput<?> input : form.getInputs()) {
++        printValidationMessage(input, true);
++      }
++    }
++    for (MForm form : connection.getFrameworkPart().getForms()) {
++      for (MInput<?> input : form.getInputs()) {
++        printValidationMessage(input, true);
++      }
++    }
++  }
++
++  public static void printJobValidationMessages(MJob job) {
++    for (MForm form : job.getConnectorPart().getForms()) {
++      for (MInput<?> input : form.getInputs()) {
++        printValidationMessage(input, true);
++      }
++    }
++    for (MForm form : job.getFrameworkPart().getForms()) {
++      for (MInput<?> input : form.getInputs()) {
++        printValidationMessage(input, true);
++      }
++    }
++  }
++
+   private FormFiller() {
+     // Do not instantiate
+   }
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/utils/FormOptions.java b/shell/src/main/java/org/apache/sqoop/shell/utils/FormOptions.java
+new file mode 100644
+index 0000000..efd002e
+--- /dev/null
++++ b/shell/src/main/java/org/apache/sqoop/shell/utils/FormOptions.java
+@@ -0,0 +1,117 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.sqoop.shell.utils;
++
++import java.util.LinkedList;
++import java.util.List;
++
++import org.apache.commons.cli.CommandLine;
++import org.apache.commons.cli.CommandLineParser;
++import org.apache.commons.cli.GnuParser;
++import org.apache.commons.cli.Option;
++import org.apache.commons.cli.OptionBuilder;
++import org.apache.commons.cli.Options;
++import org.apache.commons.cli.ParseException;
++import org.apache.sqoop.common.SqoopException;
++import org.apache.sqoop.model.MForm;
++import org.apache.sqoop.model.MInput;
++import org.apache.sqoop.model.MInputType;
++import org.apache.sqoop.shell.core.ShellError;
++
++/**
++ * Utilities for automatically creating org.apache.commons.cli.Option objects.
++ */
++public class FormOptions {
++  /**
++   * This method is used to automatically generate keys
++   * for a particular input.
++   *
++   * @param prefix Prefix to prepend to CLI option keys
++   * @param input
++   * @return
++   */
++  @SuppressWarnings("rawtypes")
++  public static String getOptionKey(String prefix, MInput input) {
++    return prefix + "-" + input.getName().replace('.', '-');
++  }
++
++  /**
++   * This method is used to automatically generate CLI options
++   * for a list of forms.
++   *
++   * @param prefix Prefix to prepend to CLI option keys
++   * @param forms Forms to get options for
++   * @return
++   */
++  public static List<Option> getFormsOptions(String prefix, List<MForm> forms) {
++    List<Option> options = new LinkedList<Option>();
++    for (MForm form : forms) {
++      List<Option> formOptions = getFormOptions(prefix, form);
++      options.addAll(formOptions);
++    }
++    return options;
++  }
++
++  /**
++   * This method is used to automatically generate CLI options
++   * for a particular form.
++   *
++   * @param prefix Prefix to prepend to CLI option keys
++   * @param form Form to get options for
++   * @return List<Option>
++   */
++  @SuppressWarnings({ "rawtypes", "static-access" })
++  public static List<Option> getFormOptions(String prefix, MForm form) {
++    List<Option> options = new LinkedList<Option>();
++    for (MInput input : form.getInputs()) {
++      if (input.getType().equals(MInputType.BOOLEAN)) {
++        options.add(OptionBuilder
++                    .withLongOpt(getOptionKey(prefix, input))
++                    .create());
++      } else {
++        options.add(OptionBuilder
++                    .withLongOpt(getOptionKey(prefix, input))
++                    .hasArg()
++                    .create());
++      }
++    }
++    return options;
++  }
++
++  /**
++   * Parses command line options.
++   *
++   * @param options parse arglist against these.
++   * @param start beginning index in arglist.
++   * @param arglist arguments to parse.
++   * @param stopAtNonOption stop parsing when nonoption found in arglist.
++   * @return CommandLine object
++   */
++  public static CommandLine parseOptions(Options options, int start, List<String> arglist, boolean stopAtNonOption) {
++    String[] args = arglist.subList(start, arglist.size()).toArray(new String[arglist.size() - start]);
++
++    CommandLineParser parser = new GnuParser();
++    CommandLine line;
++    try {
++      line = parser.parse(options, args, stopAtNonOption);
++    } catch (ParseException e) {
++      throw new SqoopException(ShellError.SHELL_0003, e.getMessage(), e);
++    }
++    return line;
++  }
++}
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/utils/JobDynamicFormOptions.java b/shell/src/main/java/org/apache/sqoop/shell/utils/JobDynamicFormOptions.java
+new file mode 100644
+index 0000000..aa118e1
+--- /dev/null
++++ b/shell/src/main/java/org/apache/sqoop/shell/utils/JobDynamicFormOptions.java
+@@ -0,0 +1,44 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.sqoop.shell.utils;
++
++import org.apache.commons.cli.Option;
++import org.apache.commons.cli.OptionBuilder;
++import org.apache.sqoop.model.MJob;
++
++/**
++ * Automatically create dynamic options for jobs.
++ */
++@SuppressWarnings("serial")
++public class JobDynamicFormOptions extends DynamicFormOptions<MJob> {
++
++  @SuppressWarnings("static-access")
++  @Override
++  public void prepareOptions(MJob job) {
++    this.addOption(OptionBuilder
++                  .withLongOpt("name")
++                  .hasArg()
++                  .create());
++    for (Option option : FormOptions.getFormsOptions("connector", job.getConnectorPart().getForms())) {
++      this.addOption(option);
++    }
++    for (Option option : FormOptions.getFormsOptions("framework", job.getFrameworkPart().getForms())) {
++      this.addOption(option);
++    }
++  }
++}
+-- 
+1.7.0.4
+

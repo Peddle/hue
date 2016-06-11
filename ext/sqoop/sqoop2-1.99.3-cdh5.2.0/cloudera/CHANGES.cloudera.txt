@@ -1,0 +1,223 @@
+commit de71b180728da0e20d79ce8ad67e2ceda877bb51
+Author: Jenkins slave <kitchen-build@cloudera.com>
+Date:   Thu Oct 9 13:44:06 2014 -0700
+
+    Preparing for CDH5.2.0 release
+
+commit 50c3a62099a8c0b82265d53719c7c8c5dbfc2043
+Author: Jenkins slave <kitchen-build@cloudera.com>
+Date:   Fri Sep 26 10:50:46 2014 -0700
+
+    CLOUDERA-BUILD: Fixing version to 5.2.0-SNAPSHOT
+
+commit 0a59e58f97492369b1034f299427249f148971ba
+Author: Jenkins slave <kitchen-build@cloudera.com>
+Date:   Fri Sep 26 09:26:31 2014 -0700
+
+    Preparing for CDH5.3.0 development
+
+commit e891bee078105f1dff86d42fd5ad9200ee673307
+Author: Sean Mackrory <sean@cloudera.com>
+Date:   Tue Jul 22 09:36:44 2014 -0700
+
+    CLOUDERA-BUILD. Embedded internal git repo hash in Sqoop 2
+
+commit b63ecaa42189f005586c1e0db860ce046910af74
+Author: Jenkins slave <kitchen-build@cloudera.com>
+Date:   Mon Jun 9 10:57:31 2014 -0700
+
+    Preparing for CDH5.2.0 development
+
+commit ffca2db51861529aa1087b2f9253aff9a73ee755
+Author: Jarek Jarcec Cecho <jarcec@apache.org>
+Date:   Tue Mar 18 14:07:13 2014 -0700
+
+    Revert "SQOOP-1233. Remove unnecessary explicit call to MessageFormat."
+    
+    This reverts commit f3a2c576ed3cc54745489cdabadd8c3c35782911.
+
+commit ba1baa9fd8181a2d8ce5a561db99d9287f793098
+Author: Jenkins slave <kitchen-build@cloudera.com>
+Date:   Mon Mar 3 11:02:39 2014 -0800
+
+    Preparing for CDH5.1.0 development
+
+commit 152b3de57d9fdeaab5e3f3c905efd7c5f9bf4ef3
+Author: Venkat Ranganathan <venkat@hortonworks.com>
+Date:   Mon Feb 24 10:58:29 2014 -0800
+
+    SQOOP-1290 Sqoop2: Kill Tomcat in case that Sqoop Server fails to load
+    
+    (Jarek Jarcec Cecho via Venkat Ranganathan)
+
+commit f30151d257eb6f6e8a1ce204a107c25b7f5fce89
+Author: Venkat Ranganathan <venkat@hortonworks.com>
+Date:   Mon Feb 24 10:23:42 2014 -0800
+
+    SQOOP-1291: Sqoop2: Binary package do not have top level commands executable
+    
+    (Jarek Jarcec Cecho via Venkat Ranganathan)
+
+commit e7f0691e626c85d99a3805ef6d16020966fd6abb
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Sun Feb 2 21:09:16 2014 -0800
+
+    SQOOP-1234. Sqoop2: Clean up comments in MSubmission class
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit ed51b41b2276557fb097a3076f18d57d86b670bc
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Sun Feb 2 21:02:28 2014 -0800
+
+    SQOOP-1144. Sqoop2: Add fixVersion to PreCommit branch detection
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit d04221ba22e09c8a03542c4f9110501e117211b6
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Sun Feb 2 20:56:18 2014 -0800
+
+    SQOOP-1233. Remove unnecessary explicit call to MessageFormat.
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit 32c31ed8c675de9ef60d1e81fb1f21931772a78e
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Sun Feb 9 15:08:41 2014 -0800
+
+    SQOOP-1285. Sqoop2: ToolRunner is not exiting with proper exit value on error.
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit f984da10ea97f6c8579a3f8261f40f119b0a3adc
+Author: Jarek Jarcec Cecho <jarcec@apache.org>
+Date:   Mon Oct 7 12:11:21 2013 -0700
+
+    CLOUDERA-BUILD. Increasing size of the version field
+    
+    CDH-14792
+
+commit 8fe46c60a15d0f304553d26e59f95a612b18af0f
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Thu Jan 16 11:53:31 2014 -0800
+
+    SQOOP-1266. Introduce Sqoop2 top-level commands
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit cd5bebbba24538002235d89ef29da2833c0baa84
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Thu Jan 2 09:25:52 2014 -0800
+
+    SQOOP-1262. Sqoop2: Tool: Create user guide entry for the Tooling infrastructure
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit 82272f00e03681a48685ddbc15663cea14367495
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Thu Jan 2 09:17:17 2014 -0800
+
+    SQOOP-1264. Sqoop2: Remove unnecessary cd command calls from sqoop.sh
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit 1362282a621f974825b23281e1b27f8f6841bfad
+Author: Jarek Jarcec Cecho <jarcec@apache.org>
+Date:   Sat Dec 21 00:36:24 2013 -0800
+
+    SQOOP-1263: Using CATALINA_HOME as CATALINA_BASE
+    
+    (Sean Mackrory via Jarek Jarcec Cecho)
+
+commit a0bf8ececbd6d80da74100ba4913271e8543cf0c
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Fri Dec 13 21:46:19 2013 -0800
+
+    SQOOP-1254. Sqoop2: Tool: Add Upgrade tool
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit 8d9e3567fbf314ca1e4e9b066377634fb66c0967
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Fri Dec 13 19:24:47 2013 -0800
+
+    SQOOP-1258. Sqoop2: FrameworkMetadataUpgrade can't handle new inputs
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit 80ae59e632acdf7ad428d0ed00254e9c0ff3ec3a
+Author: Jarek Jarcec Cecho <jarcec@apache.org>
+Date:   Fri Dec 6 13:04:52 2013 -0800
+
+    CLOUDERA-BUILD. Changing dependencies to CDH specific ones.
+
+commit e30b5aa775372b6b25e252957432c85ff7f94511
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Fri Dec 6 10:58:15 2013 -0800
+
+    SQOOP-1247. Sqoop2: Add sqoop-tomcat dependency to distribution module.
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit ae8df305a41cfb2aa3186559a8c674e069661286
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Tue Dec 3 17:08:25 2013 -0800
+
+    SQOOP-1232. Sqoop2: Provide tooling infrastructure for Sqoop2
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit cd79f288351dd953e3dbba39d57b8e38f60af789
+Author: Jarek Jarcec Cecho <jarcec@apache.org>
+Date:   Sun Nov 10 18:50:21 2013 -0800
+
+    SQOOP-1225: Sqoop 2 documentation for connector development
+    
+    (Masatake Iwasaki via Jarek Jarcec Cecho)
+
+commit 852c17ecc88fad63f4413347e923a4b311c51811
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Thu Oct 24 17:19:11 2013 -0700
+
+    SQOOP-1220. Sqoop2: Improve default catalina.properties file to work out of the box on both Hadoop 1 and 2
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit b65f6dc1958513f3ff08ff33a7b3941ad5fd2742
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Wed Oct 23 23:04:00 2013 -0700
+
+    SQOOP-1153. Sqoop2: Integration: Add test for enabling and disabling connections and objects
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit de6dc8c8c2f912b0a03f6cd7c8ab67c29d460f66
+Author: Hari Shreedharan <hshreedharan@apache.org>
+Date:   Wed Oct 23 22:09:55 2013 -0700
+
+    SQOOP-1189. Sqoop2: Ensure that clone methods will correctly copy over all values from all parents
+    
+    (Jarek Jarcec Cecho via Hari Shreedharan)
+
+commit 98565d50abeb5b3ae571e633a8529201cdf08972
+Author: Jarek Jarcec Cecho <jarcec@apache.org>
+Date:   Tue Oct 22 16:41:34 2013 -0700
+
+    SQOOP-927: Sqoop2: Integration: Mapreduce specific tests should be running on MiniCluster
+    
+    (Abraham Elmahrek via Jarek Jarcec Cecho)
+
+commit 1be0c03f0cf1d03c70a656899cedd755f8b6a79b
+Author: Jarek Jarcec Cecho <jarcec@apache.org>
+Date:   Wed Oct 16 14:21:56 2013 -0700
+
+    SQOOP-773: Sqoop2: Batch execution support for client commands
+    
+    (Abraham Elmahrek via Jarek Jarcec Cecho)
+
+commit 71f9ed81cd389b7af55308370907bcfd3f353dcd
+Author: Jarek Jarcec Cecho <jarcec@apache.org>
+Date:   Thu Nov 7 17:17:19 2013 -0800
+
+    CLOUDERA-BUILD. Building against CDH dependencies.

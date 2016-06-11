@@ -1,14 +1,64 @@
 import json
-from nose.tools import assert_equal
+import logging
 from mako.template import Template
+from hadoop import cluster
+from liboozie.oozie_api import get_oozie
+from liboozie.submission2 import Submission
+
+LOG = logging.getLogger(__name__)
 
 class Indexer(object):
+  def run_morphline(self, collection_name, morphline, input_path):
+    fs = cluster.get_hdfs()
+
+    LOG.info(morphline)
+
+    # TODO put this in tmp and clean up after
+    fs.create("/user/hue/uploaded_morphline.conf",
+      overwrite=True,
+      data=morphline
+      )
+
+    oozie = get_oozie("admin", api_version="v2")
+
+    # TODO these shouldn't be hardcoded
+    properties = {
+      "dryrun":"False",
+      "hue-id-w":"55",
+      "jobTracker":"hue-aaron-1.vpc.cloudera.com:8032",
+      "nameNode":"hdfs://hue-aaron-1.vpc.cloudera.com:8020",
+      "oozie.use.system.libpath":"True",
+      "security_enabled":"False",
+      "collectionName":collection_name,
+      "file_path":input_path
+    }
+    workspace = "hdfs://hue-aaron-1.vpc.cloudera.com:8020/user/hue/hue_smart_index_workspace"
+
+    jobid = oozie.submit_workflow(
+      workspace, 
+      properties)
+
+    oozie.job_control(jobid, "start")
+
   def guess_format(self, data):
     """
     Input:
     data: {'type': 'file', 'path': '/user/hue/logs.csv'}
     Output:
-    {'format': {type: 'csv', fieldSeparator : ",", recordSeparator: '\n', quoteChar : "\""}, 'columns': [{name: business_id, type: string}, {name: cool, type: integer}, {name: date, type: date}]} 
+    {'format': 
+      {
+        type: 'csv', 
+        fieldSeparator : ",", 
+        recordSeparator: '\n', 
+        quoteChar : "\""
+      }, 
+      'columns': 
+        [
+          {name: business_id, type: string}, 
+          {name: cool, type: integer}, 
+          {name: date, type: date}
+          ]
+    } 
     """
     file_format = FileFormat(data['file'])
 
@@ -29,19 +79,24 @@ class Indexer(object):
     """
 
     # Load schema
+    schemaTemplate =  Template(filename="./desktop/libs/indexer/src/indexer/templates/schema.mako")
+
 
     # TODO, what to do with unique key?
-    return Template(filename="./templates/schema.mako").render(fields=data['columns'])  
+    return schemaTemplate.render(fields=data['columns'])  
 
   @staticmethod
-  def _morphline_quote_escape(string):
-    return string.replace('"', '\\"')
+  def _format_character(string):
+    string = string.replace('"', '\\"')
+    string = string.replace('\t', '\\t')
 
-  def generate_morphline_config(self, data):
+    return string
+
+  def generate_morphline_config(self, collection_name, data):
     """
     Input:
     data: {
-      'type': {'format': 'csv', 'columns': [{'name': business_id, 'included': True', 'type': 'string'}, cool, date], fieldSeparator : ",", recordSeparator: '\n', quoteChar : "\""},
+      'type': {'name': 'My New Collection!' format': 'csv', 'columns': [{'name': business_id, 'included': True', 'type': 'string'}, cool, date], fieldSeparator : ",", recordSeparator: '\n', quoteChar : "\""},
       'transformation': [
         'country_code': {'replace': {'FRA': 'FR, 'CAN': 'CA'..}}
         'ip': {'geoIP': }
@@ -50,22 +105,24 @@ class Indexer(object):
     Output:
     Morphline content 'SOLR_LOCATOR : { ...}' 
     """
-
-    return Template(filename="./templates/morphline_template.conf").render(
-      fields=data['columns'], 
-      quote_escape=Indexer._morphline_quote_escape,
+    # TODO what happens if there is a space in a field name? is that allowed by the spec? 
+      # if so how does mako handle it?
+    # TODO use conf.py in indexer to (indexer.conf) to store the file location
+    return Template(filename="./desktop/libs/indexer/src/indexer/templates/morphline_template.conf").render(
+      collection_name=collection_name,
+      fields=data['columns'],
+      format_character=Indexer._format_character,
       format=data['format'])
-  
-  
-  # def generate_indexing_job(self, collection_name, data, morphline):
-  #   """
-  #   Input:
-  #   data: hue, 'SOLR_LOCATOR : { ...}
-  #   Output:
-  #   Oozie workflow
-  #   """
+    
+  def generate_indexing_job(self, data, morphline):
+    """
+    Input:
+    data: hue, 'SOLR_LOCATOR : { ...}
+    Output:
+    Oozie workflow
+    """
 
-  #   pass
+    pass
 
 # TODO: is using a field class over desigining?
 class Field(object):
@@ -85,7 +142,7 @@ class Field(object):
   
 
   def __iter__(self):
-    return {'name': self.name, 'field_type': self.field_type}.iteritems()
+    return {'name': self.name, 'type': self.field_type}.iteritems()
 
 import csv
 
@@ -140,7 +197,9 @@ class CSVType(FileType):
     first_row = reader.next()
 
 
-    header = first_row if self._has_header else ["field %d" % (i+1) for i in range(len(first_row))]
+    header = first_row if self._has_header else [\
+      "field_%d" % (i+1) if i >= 1 else "id"\
+      for i in range(len(first_row))]
 
     # TODO: keep first_row or lazily throw away?
     # TODO: put some thought into the number of sample rows

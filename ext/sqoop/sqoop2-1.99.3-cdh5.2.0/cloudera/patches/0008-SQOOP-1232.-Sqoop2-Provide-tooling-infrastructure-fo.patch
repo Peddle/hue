@@ -1,0 +1,587 @@
+From ae8df305a41cfb2aa3186559a8c674e069661286 Mon Sep 17 00:00:00 2001
+From: Hari Shreedharan <hshreedharan@apache.org>
+Date: Tue, 3 Dec 2013 17:08:25 -0800
+Subject: [PATCH 08/30] SQOOP-1232. Sqoop2: Provide tooling infrastructure for Sqoop2
+
+(Jarek Jarcec Cecho via Hari Shreedharan)
+---
+ dist/pom.xml                                       |    2 +
+ dist/src/main/bin/sqoop.sh                         |   14 ++++
+ pom.xml                                            |   22 ++++--
+ server/pom.xml                                     |    5 +
+ tomcat/pom.xml                                     |   46 +++++++++++
+ .../org/apache/sqoop/tomcat/TomcatToolRunner.java  |   80 +++++++++++++++++++
+ tools/pom.xml                                      |   45 +++++++++++
+ .../src/main/java/org/apache/sqoop/tools/Tool.java |   41 ++++++++++
+ .../java/org/apache/sqoop/tools/ToolRunner.java    |   81 ++++++++++++++++++++
+ .../org/apache/sqoop/tools/tool/BuiltinTools.java  |   54 +++++++++++++
+ .../org/apache/sqoop/tools/tool/VerifyTool.java    |   47 +++++++++++
+ 11 files changed, 431 insertions(+), 6 deletions(-)
+ create mode 100644 tomcat/pom.xml
+ create mode 100644 tomcat/src/main/java/org/apache/sqoop/tomcat/TomcatToolRunner.java
+ create mode 100644 tools/pom.xml
+ create mode 100644 tools/src/main/java/org/apache/sqoop/tools/Tool.java
+ create mode 100644 tools/src/main/java/org/apache/sqoop/tools/ToolRunner.java
+ create mode 100644 tools/src/main/java/org/apache/sqoop/tools/tool/BuiltinTools.java
+ create mode 100644 tools/src/main/java/org/apache/sqoop/tools/tool/VerifyTool.java
+
+diff --git a/dist/pom.xml b/dist/pom.xml
+index c9fc404..4ae7d66 100644
+--- a/dist/pom.xml
++++ b/dist/pom.xml
+@@ -166,6 +166,8 @@ limitations under the License.
+                     </copy>
+                     <copy file="../server/target/sqoop.war"
+                       toDir="target/sqoop-${project.version}-bin-hadoop${hadoop.profile}/server/webapps"/>
++                    <copy file="../tomcat/target/sqoop-tomcat-${project.version}.jar"
++                      toDir="target/sqoop-${project.version}-bin-hadoop${hadoop.profile}/server/lib"/>
+ 
+                     <!-- Build shell client directory -->
+                     <copy todir="target/sqoop-${project.version}-bin-hadoop${hadoop.profile}/shell/lib">
+diff --git a/dist/src/main/bin/sqoop.sh b/dist/src/main/bin/sqoop.sh
+index e3ed5ef..9aad029 100755
+--- a/dist/src/main/bin/sqoop.sh
++++ b/dist/src/main/bin/sqoop.sh
+@@ -68,6 +68,20 @@ setup_catalina_opts() {
+ 
+ COMMAND=$1
+ case $COMMAND in
++  tool)
++    if [ $# = 1 ]; then
++      echo "Usage: sqoop.sh tool TOOL_NAME [TOOL_ARGS]"
++      exit
++    fi
++
++    source ${BASEDIR}/bin/sqoop-sys.sh
++    setup_catalina_opts
++
++    # Remove the "tool" keyword from the command line and pass the rest
++    shift
++
++    $CATALINA_BIN/tool-wrapper.sh -server org.apache.sqoop.tomcat.TomcatToolRunner $@
++    ;;
+   server)
+     if [ $# = 1 ]; then
+       echo "Usage: sqoop.sh server <start/stop>"
+diff --git a/pom.xml b/pom.xml
+index 4fb57f3..bbaa6aa 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -14,10 +14,7 @@ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+--->
+-<project xmlns="http://maven.apache.org/POM/4.0.0"
+-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++--><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+   <modelVersion>4.0.0</modelVersion>
+   <parent>
+     <groupId>com.cloudera.cdh</groupId>
+@@ -355,6 +352,11 @@ limitations under the License.
+         <version>${project.version}</version>
+       </dependency>
+       <dependency>
++        <groupId>org.apache.sqoop</groupId>
++        <artifactId>sqoop-tools</artifactId>
++        <version>${project.version}</version>
++      </dependency>
++      <dependency>
+         <groupId>com.googlecode.json-simple</groupId>
+         <artifactId>json-simple</artifactId>
+         <version>${json-simple.version}</version>
+@@ -457,6 +459,12 @@ limitations under the License.
+       <version>${mockito.version}</version>
+       <scope>test</scope>
+     </dependency>
++    <dependency>
++      <groupId>org.apache.tomcat</groupId>
++      <artifactId>catalina</artifactId>
++      <version>${tomcat.version}</version>
++      <scope>provided</scope>
++    </dependency>
+    </dependencies>
+   </dependencyManagement>
+ 
+@@ -467,13 +475,15 @@ limitations under the License.
+     <module>repository</module>
+     <module>server</module>
+     <module>client</module>
+-	<module>shell</module>
++    <module>shell</module>
+     <module>docs</module>
+     <module>connector</module>
+     <module>execution</module>
+     <module>submission</module>
+     <module>dist</module>
+     <module>test</module>
++    <module>tools</module>
++    <module>tomcat</module>
+   </modules>
+ 
+   <build>
+@@ -609,7 +619,7 @@ limitations under the License.
+         <version>2.4</version>
+         <reportSets>
+           <reportSet>
+-            <reports></reports>
++            <reports/>
+           </reportSet>
+         </reportSets>
+       </plugin>
+diff --git a/server/pom.xml b/server/pom.xml
+index fb5d03c..bc30a89 100644
+--- a/server/pom.xml
++++ b/server/pom.xml
+@@ -40,6 +40,11 @@ limitations under the License.
+ 
+     <dependency>
+       <groupId>org.apache.sqoop</groupId>
++      <artifactId>sqoop-tools</artifactId>
++    </dependency>
++
++    <dependency>
++      <groupId>org.apache.sqoop</groupId>
+       <artifactId>sqoop-common</artifactId>
+     </dependency>
+ 
+diff --git a/tomcat/pom.xml b/tomcat/pom.xml
+new file mode 100644
+index 0000000..91616bb
+--- /dev/null
++++ b/tomcat/pom.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0"?>
++<!--
++Licensed to the Apache Software Foundation (ASF) under one or more
++contributor license agreements.  See the NOTICE file distributed with
++this work for additional information regarding copyright ownership.
++The ASF licenses this file to You under the Apache License, Version 2.0
++(the "License"); you may not use this file except in compliance with
++the License.  You may obtain a copy of the License at
++
++     http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++-->
++<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
++    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
++  <modelVersion>4.0.0</modelVersion>
++
++  <parent>
++    <groupId>org.apache</groupId>
++    <artifactId>sqoop</artifactId>
++    <version>2.0.0-SNAPSHOT</version>
++  </parent>
++
++  <groupId>org.apache.sqoop</groupId>
++  <artifactId>sqoop-tomcat</artifactId>
++  <name>Sqoop Tomcat additions</name>
++
++  <dependencies>
++
++    <dependency>
++      <groupId>junit</groupId>
++      <artifactId>junit</artifactId>
++      <scope>test</scope>
++    </dependency>
++
++    <dependency>
++      <groupId>org.apache.tomcat</groupId>
++      <artifactId>catalina</artifactId>
++    </dependency>
++
++  </dependencies>
++</project>
+diff --git a/tomcat/src/main/java/org/apache/sqoop/tomcat/TomcatToolRunner.java b/tomcat/src/main/java/org/apache/sqoop/tomcat/TomcatToolRunner.java
+new file mode 100644
+index 0000000..2d81792
+--- /dev/null
++++ b/tomcat/src/main/java/org/apache/sqoop/tomcat/TomcatToolRunner.java
+@@ -0,0 +1,80 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.sqoop.tomcat;
++
++import org.apache.catalina.Host;
++import org.apache.catalina.startup.Bootstrap;
++import org.apache.catalina.startup.ClassLoaderFactory;
++import org.apache.catalina.startup.Embedded;
++import org.apache.catalina.startup.ExpandWar;
++
++import java.io.File;
++import java.lang.reflect.Method;
++import java.net.URL;
++
++/**
++ * Add Sqoop webapp and common loader into the classpath and run the usual ToolRunner.
++ *
++ * This class will be executed via Tomcat Tool mechanism that do a lot of heavy
++ * lifting for us - it will set up most of the environment and class loaders. Sadly
++ * it won't setup the common.loader (Hadoop dependencies) and the Sqoop webapp itself.
++ */
++public class TomcatToolRunner {
++
++  // TODO: The appBase can be loaded from the conf/server.xml file
++  private static String PROPERTY_APPBASE_PATH = "org.apache.sqoop.tomcat.webapp.path";
++  private static String DEFAULT_APPBASE_PATH = "webapps";
++
++  public static void main(String[] args) throws Exception {
++    // Using Boostrap class to boot the common.loader and other catalina specific
++    // class loaders.
++    Bootstrap bootstrap = new Bootstrap();
++    bootstrap.init();
++
++    // Now we need to add the sqoop webapp classes into the class loader. Sadly
++    // we have to do a lot of things ourselves. The procedure is:
++    // 1) Unpack Sqoop war file
++    // 2) Build the ClassLoader using Tomcat's ClassLoaderFactory
++
++    // Various paths to war file and locations inside the war file
++    String webappPath = System.getProperty(PROPERTY_APPBASE_PATH, DEFAULT_APPBASE_PATH);
++    String catalinaBase = Bootstrap.getCatalinaHome();
++    String fullWebappPath = catalinaBase + File.separator + webappPath;
++    String fullSqoopWarPath = fullWebappPath + File.separator + "sqoop.war";
++    String fullSqoopClassesPath = fullWebappPath + File.separator + "sqoop" + File.separator + "WEB-INF" + File.separator + "classes";
++    String fullSqoopLibPath = fullWebappPath + File.separator + "sqoop" + File.separator + "WEB-INF" + File.separator + "lib";
++
++    // Expand the war into the usual location, this operation is idempotent (nothing bad happens if it's already expanded)
++    Embedded embedded = new Embedded();
++    Host host = embedded.createHost("Sqoop Tool Virtual Host", fullWebappPath);
++    ExpandWar.expand(host, new URL("jar:file://" + fullSqoopWarPath + "!/"));
++
++    // We have expanded war file, so we build the classloader from
++    File [] unpacked = new File[1];   unpacked[0] = new File(fullSqoopClassesPath);
++    File [] packed = new File[1];     packed[0] = new File(fullSqoopLibPath);
++    ClassLoader loader = ClassLoaderFactory.createClassLoader(unpacked, packed, Thread.currentThread().getContextClassLoader());
++    Thread.currentThread().setContextClassLoader(loader);
++
++    // Finally we can call the usual ToolRunner. We have to use reflection as
++    // as the time of loading this class, Sqoop dependencies are not on classpath.
++    Class klass = Class.forName("org.apache.sqoop.tools.ToolRunner", true, loader);
++    Method method = klass.getMethod("main", String[].class);
++    method.invoke(null, (Object)args);
++  }
++
++}
+diff --git a/tools/pom.xml b/tools/pom.xml
+new file mode 100644
+index 0000000..31eda1c
+--- /dev/null
++++ b/tools/pom.xml
+@@ -0,0 +1,45 @@
++<?xml version="1.0"?>
++<!--
++Licensed to the Apache Software Foundation (ASF) under one or more
++contributor license agreements.  See the NOTICE file distributed with
++this work for additional information regarding copyright ownership.
++The ASF licenses this file to You under the Apache License, Version 2.0
++(the "License"); you may not use this file except in compliance with
++the License.  You may obtain a copy of the License at
++
++     http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++-->
++<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
++    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
++  <modelVersion>4.0.0</modelVersion>
++
++  <parent>
++    <groupId>org.apache</groupId>
++    <artifactId>sqoop</artifactId>
++    <version>2.0.0-SNAPSHOT</version>
++  </parent>
++
++  <groupId>org.apache.sqoop</groupId>
++  <artifactId>sqoop-tools</artifactId>
++  <name>Sqoop Tools</name>
++
++  <dependencies>
++    <dependency>
++      <groupId>junit</groupId>
++      <artifactId>junit</artifactId>
++    </dependency>
++
++    <dependency>
++      <groupId>org.apache.sqoop</groupId>
++      <artifactId>sqoop-core</artifactId>
++    </dependency>
++
++  </dependencies>
++
++</project>
+diff --git a/tools/src/main/java/org/apache/sqoop/tools/Tool.java b/tools/src/main/java/org/apache/sqoop/tools/Tool.java
+new file mode 100644
+index 0000000..4b7a31e
+--- /dev/null
++++ b/tools/src/main/java/org/apache/sqoop/tools/Tool.java
+@@ -0,0 +1,41 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing,
++ * software distributed under the License is distributed on an
++ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++ * KIND, either express or implied.  See the License for the
++ * specific language governing permissions and limitations
++ * under the License.
++ */
++package org.apache.sqoop.tools;
++
++/**
++ * Abstract class describing Sqoop tool.
++ *
++ * Tools are server side actions that administrator might need to execute as
++ * one time action. They do not serve as a service and are not participating
++ * in data transfers (unlike Sqoop 1 tools). They are strictly maintenance
++ * related such as "validate deployment" or "upgrade repository".
++ *
++ * All tools are executed in the same environment as Sqoop server itself (classpath,
++ * configuration, java properties, ...).
++ */
++public abstract class Tool {
++
++  /**
++   * Run the tool.
++   *
++   * @param arguments Arguments as were entered on the command line
++   * @return true if the execution was successful
++   */
++  abstract public boolean runTool(String[] arguments);
++}
+diff --git a/tools/src/main/java/org/apache/sqoop/tools/ToolRunner.java b/tools/src/main/java/org/apache/sqoop/tools/ToolRunner.java
+new file mode 100644
+index 0000000..8f64e7f
+--- /dev/null
++++ b/tools/src/main/java/org/apache/sqoop/tools/ToolRunner.java
+@@ -0,0 +1,81 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing,
++ * software distributed under the License is distributed on an
++ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++ * KIND, either express or implied.  See the License for the
++ * specific language governing permissions and limitations
++ * under the License.
++ */
++package org.apache.sqoop.tools;
++
++import org.apache.sqoop.common.VersionInfo;
++import org.apache.sqoop.tools.tool.BuiltinTools;
++import org.apache.sqoop.utils.ClassUtils;
++
++import java.util.Arrays;
++
++/**
++ * Runner allowing the tool to be executed from command line.
++ *
++ * It's expected that all usual dependencies are already on the classpath.
++ */
++public final class ToolRunner {
++
++  /**
++   * Run tool given as first argument and pass all other arguments to it as
++   * tool parameters.
++   *
++   * @param args Tool name and it's arguments
++   * @throws Exception
++   */
++  public static void main(String[] args) throws Exception {
++    System.out.println("Sqoop tool executor:");
++    System.out.println("\tVersion: " + VersionInfo.getVersion());
++    System.out.println("\tRevision: " + VersionInfo.getRevision());
++    System.out.println("\tCompiled on " + VersionInfo.getDate() + " by " + VersionInfo.getUser());
++
++    if(args.length < 1) {
++      throw new IllegalArgumentException("Name of the tool is missing.");
++    }
++
++    Class<? extends Tool> toolClass;
++
++    // Firstly let's try to resolve short name
++    toolClass = BuiltinTools.getTool(args[0]);
++
++    // If the short name wasn't resolved, find the class by it's name
++    if(toolClass == null) {
++      toolClass = (Class<? extends Tool>) ClassUtils.loadClass(args[0]);
++    }
++
++    if(toolClass == null) {
++      throw new IllegalArgumentException("Can't find tool: " + args[0]);
++    }
++
++    Tool tool = (Tool) ClassUtils.instantiate(toolClass);
++    if(tool == null) {
++      throw new RuntimeException("Can't get tool instance: " + args[0]);
++    }
++
++    System.out.println("Running tool: " + toolClass);
++    if(tool.runTool(Arrays.copyOfRange(args, 1, args.length))) {
++      System.out.println("Tool " + toolClass + " has finished correctly.");
++    } else {
++      System.out.println("Tool " + toolClass + " has failed.");
++    }
++  }
++
++  private ToolRunner() {
++    // Instantiation is prohibited
++  }
++}
+diff --git a/tools/src/main/java/org/apache/sqoop/tools/tool/BuiltinTools.java b/tools/src/main/java/org/apache/sqoop/tools/tool/BuiltinTools.java
+new file mode 100644
+index 0000000..0045511
+--- /dev/null
++++ b/tools/src/main/java/org/apache/sqoop/tools/tool/BuiltinTools.java
+@@ -0,0 +1,54 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing,
++ * software distributed under the License is distributed on an
++ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++ * KIND, either express or implied.  See the License for the
++ * specific language governing permissions and limitations
++ * under the License.
++ */
++package org.apache.sqoop.tools.tool;
++
++import org.apache.sqoop.tools.Tool;
++
++import java.util.HashMap;
++import java.util.Map;
++
++/**
++ * List of built-in tools with short names for easier manipulation.
++ */
++public class BuiltinTools {
++
++  /**
++   * List of built-in tools
++   */
++  private static Map<String, Class<? extends Tool>> tools;
++  static {
++    tools = new HashMap<String, Class<? extends Tool>>();
++    tools.put("verify", VerifyTool.class);
++  }
++
++  /**
++   * Returns the tool class associated with the short name or NULL in case that
++   * the short name is not known.
++   *
++   * @param name Short name for the built-in tool
++   * @return
++   */
++  public static Class<? extends Tool> getTool(String name) {
++    return tools.get(name);
++  }
++
++  private BuiltinTools() {
++    // Instantiation is forbidden
++  }
++}
+diff --git a/tools/src/main/java/org/apache/sqoop/tools/tool/VerifyTool.java b/tools/src/main/java/org/apache/sqoop/tools/tool/VerifyTool.java
+new file mode 100644
+index 0000000..832c4f2
+--- /dev/null
++++ b/tools/src/main/java/org/apache/sqoop/tools/tool/VerifyTool.java
+@@ -0,0 +1,47 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.sqoop.tools.tool;
++
++import org.apache.sqoop.core.SqoopServer;
++import org.apache.sqoop.tools.Tool;
++import org.apache.log4j.Logger;
++
++/**
++ * Try to initialize all Sqoop sub systems to verify that Sqoop 2 is correctly
++ * configured and then tear it down. This tool will start and stop all subsystems
++ * with the exception of servlets.
++ */
++public class VerifyTool extends Tool {
++
++  public static final Logger LOG = Logger.getLogger(VerifyTool.class);
++
++  @Override
++  public boolean runTool(String[] arguments) {
++    try {
++      SqoopServer.initialize();
++      SqoopServer.destroy();
++      System.out.println("Verification was successful.");
++      return true;
++    } catch(Exception ex) {
++      LOG.error("Got exception while initializing/destroying Sqoop server:", ex);
++      System.out.println("Verification has failed, please check Server logs for further details.");
++      return false;
++    }
++  }
++
++}
+-- 
+1.7.0.4
+

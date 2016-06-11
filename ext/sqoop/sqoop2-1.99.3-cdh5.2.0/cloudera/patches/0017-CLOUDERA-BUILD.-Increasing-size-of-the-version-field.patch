@@ -1,0 +1,26 @@
+From f984da10ea97f6c8579a3f8261f40f119b0a3adc Mon Sep 17 00:00:00 2001
+From: Jarek Jarcec Cecho <jarcec@apache.org>
+Date: Mon, 7 Oct 2013 12:11:21 -0700
+Subject: [PATCH 17/30] CLOUDERA-BUILD. Increasing size of the version field
+
+CDH-14792
+---
+ .../sqoop/repository/derby/DerbySchemaQuery.java   |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/repository/repository-derby/src/main/java/org/apache/sqoop/repository/derby/DerbySchemaQuery.java b/repository/repository-derby/src/main/java/org/apache/sqoop/repository/derby/DerbySchemaQuery.java
+index 0a196f0..96f525d 100644
+--- a/repository/repository-derby/src/main/java/org/apache/sqoop/repository/derby/DerbySchemaQuery.java
++++ b/repository/repository-derby/src/main/java/org/apache/sqoop/repository/derby/DerbySchemaQuery.java
+@@ -218,7 +218,7 @@
+       + COLUMN_SQC_ID + " BIGINT GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1) PRIMARY KEY, "
+       + COLUMN_SQC_NAME + " VARCHAR(64), "
+       + COLUMN_SQC_CLASS + " VARCHAR(255), "
+-      + COLUMN_SQC_VERSION + " VARCHAR(25) "
++      + COLUMN_SQC_VERSION + " VARCHAR(50) "
+       + ")";
+ 
+   // DDL: Create table SQ_FORM
+-- 
+1.7.0.4
+

@@ -1,8 +1,25 @@
-from indexer.indexer_ import Indexer
+from nose.tools import assert_equal
+import StringIO
+import logging
+from indexer.smart_indexer import Indexer
+from indexer.controller import CollectionManagerController
+
+
+LOG = logging.getLogger(__name__)
 
 class IndexerTest():
+  simpleCSVString = """id,Rating,Location,Name,Time
+1,5,San Francisco,Good Restauran,t8:30pm
+2,4,San Mateo,Cafe,11:30am
+3,3,Berkeley,Sauls,2:30pm
+"""
+  def test_run_morphline(self):
+    Indexer().run_morphline("test_collection", "not a real morphline")
+
   def test_guess_format(self):
-    guessed_format = Indexer().guess_format({'file': open('./simple.csv')})
+    stream = StringIO.StringIO(IndexerTest.simpleCSVString)
+
+    guessed_format = Indexer().guess_format({'file': stream})
     
     file_format = guessed_format['format']
     fields = guessed_format['columns']
@@ -16,19 +33,19 @@ class IndexerTest():
     expected_fields = [
       {
         "name": "Rating",
-        "field_type": "string"
+        "type": "string"
       },
       {
         "name": "Location",
-        "field_type": "string"
+        "type": "string"
       },
       {
         "name": "Name",
-        "field_type": "string"
+        "type": "string"
       },
       {
         "name": "Time",
-        "field_type": "string"
+        "type": "string"
       }
     ]
 
@@ -49,30 +66,62 @@ class IndexerTest():
 
 
   def test_generate_morphline(self):
-    result = Indexer().generate_morphline_config({
+    result = Indexer().generate_morphline_config('test_collection', {
       'columns': [
-        {'field_type': 'string', 'name': 'Rating'},
-        {'field_type': 'string', 'name': 'Location'},
-        {'field_type': 'string', 'name': 'Name'},
-        {'field_type': 'string', 'name': 'Time'}
+        {'type': 'string', 'name': 'Rating'},
+        {'type': 'string', 'name': 'Location'},
+        {'type': 'string', 'name': 'Name'},
+        {'type': 'string', 'name': 'Time'}
       ],
       'format': {'quoteChar': '"', 'recordSeparator': '\r\n', 'type': 'csv', 'hasHeader': True, 'fieldSeparator': ','}
     })
     
-    print result
+    LOG.info(result)
     # TEST SOMEHOW?
 
-def get_tests(test_suite):
-  return [getattr(test_suite, test) for test in dir(test_suite) if "test" in test]
+  def test_end_to_end(self):
+    collection_name = "tsv_commits_test"
+    indexer = Indexer()
 
-def run_tests(tests):
-  for test in tests:
-    test()
+    # stream = StringIO.StringIO(IndexerTest.simpleCSVString)
+    stream = open("/home/aaronpeddle/Downloads/commits.tsv")
+
+    format_ = indexer.guess_format({'file': stream})
+    
+    # this has already benn done
+    # schema = indexer.generate_solr_schema(format_)
+
+    morphline = indexer.generate_morphline_config(collection_name,format_)
 
 
-def run_test_suite(test_suite):
-  tests = get_tests(test_suite)
-  run_tests(tests)  
+    # # job = Submission('hue').run(deployment_dir="/user/hue/oozie/workspaces/hue-oozie-1465324937.64")
+    # # can probably just call old
+    # # indexer.create_solr_collection(collection_name, schema)
 
-if __name__ == "__main__":
-  run_test_suite(IndexerTest())
+    # TODO rename to fields to fit in with controller2 convention
+    CollectionManagerController("solr").create_collection(collection_name, format_['columns'])
+
+    # indexer.generate_indexing_job(morphline)
+
+    indexer.run_morphline(collection_name, morphline, "/tmp/commits.tsv")
+
+    # TODO add cleanup here
+
+    # LOG.info(oozie.get_workflows(filters=[('name', 'JavaIndexerTest')]).jobs.appName)
+
+
+
+# def get_tests(test_suite):
+#   return [getattr(test_suite, test) for test in dir(test_suite) if "test" in test]
+
+# def run_tests(tests):
+#   for test in tests:
+#     test()
+
+
+# def run_test_suite(test_suite):
+#   tests = get_tests(test_suite)
+#   run_tests(tests)
+
+# if __name__ == "__main__":
+#   run_test_suite(IndexerTest())

@@ -1,0 +1,345 @@
+From de71b180728da0e20d79ce8ad67e2ceda877bb51 Mon Sep 17 00:00:00 2001
+From: Jenkins slave <kitchen-build@cloudera.com>
+Date: Thu, 9 Oct 2014 13:44:06 -0700
+Subject: [PATCH 30/30] Preparing for CDH5.2.0 release
+
+---
+ client/pom.xml                             |    2 +-
+ common/pom.xml                             |    2 +-
+ connector/connector-generic-jdbc/pom.xml   |    2 +-
+ connector/connector-mysql-fastpath/pom.xml |    2 +-
+ connector/connector-mysql-jdbc/pom.xml     |    2 +-
+ connector/connector-sdk/pom.xml            |    4 ++--
+ connector/pom.xml                          |    2 +-
+ core/pom.xml                               |    2 +-
+ dist/pom.xml                               |    2 +-
+ docs/pom.xml                               |    2 +-
+ execution/mapreduce/pom.xml                |    2 +-
+ execution/pom.xml                          |    2 +-
+ pom.xml                                    |    4 ++--
+ repository/pom.xml                         |    2 +-
+ repository/repository-derby/pom.xml        |    2 +-
+ server/pom.xml                             |    2 +-
+ shell/pom.xml                              |    2 +-
+ spi/pom.xml                                |    2 +-
+ submission/mapreduce/pom.xml               |    2 +-
+ submission/pom.xml                         |    2 +-
+ test/pom.xml                               |    2 +-
+ tomcat/pom.xml                             |    2 +-
+ tools/pom.xml                              |    2 +-
+ 23 files changed, 25 insertions(+), 25 deletions(-)
+
+diff --git a/client/pom.xml b/client/pom.xml
+index bbdc180..a7e689c 100644
+--- a/client/pom.xml
++++ b/client/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/common/pom.xml b/common/pom.xml
+index 1e231a8..5bf9ef1 100644
+--- a/common/pom.xml
++++ b/common/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/connector/connector-generic-jdbc/pom.xml b/connector/connector-generic-jdbc/pom.xml
+index e7f3dde..efdf004 100644
+--- a/connector/connector-generic-jdbc/pom.xml
++++ b/connector/connector-generic-jdbc/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache.sqoop</groupId>
+     <artifactId>connector</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop.connector</groupId>
+diff --git a/connector/connector-mysql-fastpath/pom.xml b/connector/connector-mysql-fastpath/pom.xml
+index 604fb22..99d817e 100644
+--- a/connector/connector-mysql-fastpath/pom.xml
++++ b/connector/connector-mysql-fastpath/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache.sqoop</groupId>
+     <artifactId>connector</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop.connector</groupId>
+diff --git a/connector/connector-mysql-jdbc/pom.xml b/connector/connector-mysql-jdbc/pom.xml
+index 0ea549d..9ee5850 100644
+--- a/connector/connector-mysql-jdbc/pom.xml
++++ b/connector/connector-mysql-jdbc/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache.sqoop</groupId>
+     <artifactId>connector</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop.connector</groupId>
+diff --git a/connector/connector-sdk/pom.xml b/connector/connector-sdk/pom.xml
+index ec6fa8a..010edb1 100644
+--- a/connector/connector-sdk/pom.xml
++++ b/connector/connector-sdk/pom.xml
+@@ -24,12 +24,12 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache.sqoop</groupId>
+     <artifactId>connector</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+   <artifactId>connector-sdk</artifactId>
+-  <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++  <version>1.99.3-cdh5.2.0</version>
+   <name>Sqoop Connector SDK</name>
+ 
+   <dependencies>
+diff --git a/connector/pom.xml b/connector/pom.xml
+index d285afd..e33f2f4 100644
+--- a/connector/pom.xml
++++ b/connector/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/core/pom.xml b/core/pom.xml
+index 78f0811..6e7c010 100644
+--- a/core/pom.xml
++++ b/core/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/dist/pom.xml b/dist/pom.xml
+index c8a3b0a..1b821ed 100644
+--- a/dist/pom.xml
++++ b/dist/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/docs/pom.xml b/docs/pom.xml
+index 2bcee37..75abbe8 100644
+--- a/docs/pom.xml
++++ b/docs/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/execution/mapreduce/pom.xml b/execution/mapreduce/pom.xml
+index 08afabb..095ee60 100644
+--- a/execution/mapreduce/pom.xml
++++ b/execution/mapreduce/pom.xml
+@@ -21,7 +21,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache.sqoop</groupId>
+     <artifactId>execution</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop.execution</groupId>
+diff --git a/execution/pom.xml b/execution/pom.xml
+index 3aca1fd..2110139 100644
+--- a/execution/pom.xml
++++ b/execution/pom.xml
+@@ -21,7 +21,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/pom.xml b/pom.xml
+index 743f9bc..52054cd 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -19,12 +19,12 @@ limitations under the License.
+   <parent>
+     <groupId>com.cloudera.cdh</groupId>
+     <artifactId>cdh-root</artifactId>
+-    <version>5.2.0-SNAPSHOT</version>  
++    <version>5.2.0</version>  
+   </parent>
+ 
+   <groupId>org.apache</groupId>
+   <artifactId>sqoop</artifactId>
+-  <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++  <version>1.99.3-cdh5.2.0</version>
+   <description>Apache Sqoop</description>
+   <name>Sqoop</name>
+   <packaging>pom</packaging>
+diff --git a/repository/pom.xml b/repository/pom.xml
+index a52b268..01225ef 100644
+--- a/repository/pom.xml
++++ b/repository/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/repository/repository-derby/pom.xml b/repository/repository-derby/pom.xml
+index f75b2c8..9b5ae94 100644
+--- a/repository/repository-derby/pom.xml
++++ b/repository/repository-derby/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache.sqoop</groupId>
+     <artifactId>repository</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop.repository</groupId>
+diff --git a/server/pom.xml b/server/pom.xml
+index 1155f69..ff0f19d 100644
+--- a/server/pom.xml
++++ b/server/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/shell/pom.xml b/shell/pom.xml
+index 51560ef..80102a9 100644
+--- a/shell/pom.xml
++++ b/shell/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/spi/pom.xml b/spi/pom.xml
+index 2bf182b..b025ef2 100644
+--- a/spi/pom.xml
++++ b/spi/pom.xml
+@@ -24,7 +24,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/submission/mapreduce/pom.xml b/submission/mapreduce/pom.xml
+index 55ec2a1..ae0f226 100644
+--- a/submission/mapreduce/pom.xml
++++ b/submission/mapreduce/pom.xml
+@@ -21,7 +21,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache.sqoop</groupId>
+     <artifactId>submission</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop.submission</groupId>
+diff --git a/submission/pom.xml b/submission/pom.xml
+index 1a009cc..ca14544 100644
+--- a/submission/pom.xml
++++ b/submission/pom.xml
+@@ -21,7 +21,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/test/pom.xml b/test/pom.xml
+index 25c4b62..e699f73 100644
+--- a/test/pom.xml
++++ b/test/pom.xml
+@@ -22,7 +22,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/tomcat/pom.xml b/tomcat/pom.xml
+index 4558220..1091ce3 100644
+--- a/tomcat/pom.xml
++++ b/tomcat/pom.xml
+@@ -22,7 +22,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+diff --git a/tools/pom.xml b/tools/pom.xml
+index 5cbf9ea..19f5c49 100644
+--- a/tools/pom.xml
++++ b/tools/pom.xml
+@@ -22,7 +22,7 @@ limitations under the License.
+   <parent>
+     <groupId>org.apache</groupId>
+     <artifactId>sqoop</artifactId>
+-    <version>1.99.3-cdh5.2.0-SNAPSHOT</version>
++    <version>1.99.3-cdh5.2.0</version>
+   </parent>
+ 
+   <groupId>org.apache.sqoop</groupId>
+-- 
+1.7.0.4
+

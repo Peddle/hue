@@ -1,0 +1,216 @@
+From a0bf8ececbd6d80da74100ba4913271e8543cf0c Mon Sep 17 00:00:00 2001
+From: Hari Shreedharan <hshreedharan@apache.org>
+Date: Fri, 13 Dec 2013 21:46:19 -0800
+Subject: [PATCH 12/30] SQOOP-1254. Sqoop2: Tool: Add Upgrade tool
+
+(Jarek Jarcec Cecho via Hari Shreedharan)
+---
+ .../apache/sqoop/connector/ConnectorManager.java   |    6 +-
+ .../apache/sqoop/framework/FrameworkManager.java   |    6 +-
+ .../apache/sqoop/repository/RepositoryManager.java |    7 ++-
+ .../org/apache/sqoop/tools/ConfiguredTool.java     |   41 +++++++++++++
+ .../org/apache/sqoop/tools/tool/BuiltinTools.java  |    1 +
+ .../org/apache/sqoop/tools/tool/UpgradeTool.java   |   62 ++++++++++++++++++++
+ 6 files changed, 117 insertions(+), 6 deletions(-)
+ create mode 100644 tools/src/main/java/org/apache/sqoop/tools/ConfiguredTool.java
+ create mode 100644 tools/src/main/java/org/apache/sqoop/tools/tool/UpgradeTool.java
+
+diff --git a/core/src/main/java/org/apache/sqoop/connector/ConnectorManager.java b/core/src/main/java/org/apache/sqoop/connector/ConnectorManager.java
+index fa91d02..b92ff4d 100644
+--- a/core/src/main/java/org/apache/sqoop/connector/ConnectorManager.java
++++ b/core/src/main/java/org/apache/sqoop/connector/ConnectorManager.java
+@@ -142,6 +142,10 @@ public SqoopConnector getConnector(String uniqueName) {
+   }
+ 
+   public synchronized void initialize() {
++    initialize(SqoopConfiguration.getInstance().getContext().getBoolean(ConfigurationConstants.CONNECTOR_AUTO_UPGRADE, DEFAULT_AUTO_UPGRADE));
++  }
++
++  public synchronized void initialize(boolean autoUpgrade) {
+     if (LOG.isTraceEnabled()) {
+       LOG.trace("Begin connector manager initialization");
+     }
+@@ -190,8 +194,6 @@ public synchronized void initialize() {
+       throw new SqoopException(ConnectorError.CONN_0001, ex);
+     }
+ 
+-    boolean autoUpgrade = SqoopConfiguration.getInstance().getContext().getBoolean(
+-        ConfigurationConstants.CONNECTOR_AUTO_UPGRADE, DEFAULT_AUTO_UPGRADE);
+     registerConnectors(autoUpgrade);
+ 
+     SqoopConfiguration.getInstance().getProvider().registerListener(new CoreConfigurationListener(this));
+diff --git a/core/src/main/java/org/apache/sqoop/framework/FrameworkManager.java b/core/src/main/java/org/apache/sqoop/framework/FrameworkManager.java
+index 424285c..505121c 100644
+--- a/core/src/main/java/org/apache/sqoop/framework/FrameworkManager.java
++++ b/core/src/main/java/org/apache/sqoop/framework/FrameworkManager.java
+@@ -147,11 +147,13 @@ public FrameworkManager() {
+   }
+ 
+   public synchronized void initialize() {
++    initialize(SqoopConfiguration.getInstance().getContext().getBoolean(ConfigurationConstants.FRAMEWORK_AUTO_UPGRADE, DEFAULT_AUTO_UPGRADE));
++  }
++
++  public synchronized void initialize(boolean autoUpgrade) {
+     LOG.trace("Begin submission engine manager initialization");
+ 
+     // Register framework metadata in repository
+-    boolean autoUpgrade = SqoopConfiguration.getInstance().getContext().getBoolean(
+-        ConfigurationConstants.FRAMEWORK_AUTO_UPGRADE, DEFAULT_AUTO_UPGRADE);
+     mFramework = RepositoryManager.getInstance().getRepository().registerFramework(mFramework, autoUpgrade);
+ 
+     SqoopConfiguration.getInstance().getProvider().registerListener(new CoreConfigurationListener(this));
+diff --git a/core/src/main/java/org/apache/sqoop/repository/RepositoryManager.java b/core/src/main/java/org/apache/sqoop/repository/RepositoryManager.java
+index 25d5d9d..8f955ad 100644
+--- a/core/src/main/java/org/apache/sqoop/repository/RepositoryManager.java
++++ b/core/src/main/java/org/apache/sqoop/repository/RepositoryManager.java
+@@ -72,6 +72,10 @@ public static void setInstance(RepositoryManager newInstance) {
+   private RepositoryProvider provider;
+ 
+   public synchronized void initialize() {
++    initialize(SqoopConfiguration.getInstance().getContext().getBoolean(RepoConfigurationConstants.SYSCFG_REPO_SCHEMA_IMMUTABLE, false));
++  }
++
++  public synchronized void initialize(boolean immutableRepository) {
+     MapContext context = SqoopConfiguration.getInstance().getContext();
+ 
+     Map<String, String> repoSysProps = context.getNestedProperties(
+@@ -113,8 +117,7 @@ public synchronized void initialize() {
+ 
+     provider.initialize(context);
+ 
+-    if(!context.getBoolean(RepoConfigurationConstants
+-      .SYSCFG_REPO_SCHEMA_IMMUTABLE, false)) {
++    if(!immutableRepository) {
+       LOG.info("Creating or upgrading on disk structures if necessary");
+       provider.getRepository().createOrUpdateInternals();
+     }
+diff --git a/tools/src/main/java/org/apache/sqoop/tools/ConfiguredTool.java b/tools/src/main/java/org/apache/sqoop/tools/ConfiguredTool.java
+new file mode 100644
+index 0000000..90bd8d8
+--- /dev/null
++++ b/tools/src/main/java/org/apache/sqoop/tools/ConfiguredTool.java
+@@ -0,0 +1,41 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.sqoop.tools;
++
++import org.apache.sqoop.core.SqoopConfiguration;
++
++/**
++ * Most of the tools needs to load Sqoop configuration in order to perform
++ * their task. To simplify the code, ConfiguredTool will make sure that
++ * the configuration is properly loaded prior executing the actual tool.
++ */
++public abstract class ConfiguredTool extends Tool {
++
++  public abstract boolean runToolWithConfiguration(String[] arguments);
++
++  @Override
++  public final boolean runTool(String[] arguments) {
++    try {
++      SqoopConfiguration.getInstance().initialize();
++      return runToolWithConfiguration(arguments);
++    } finally {
++      SqoopConfiguration.getInstance().destroy();
++    }
++  }
++
++}
+diff --git a/tools/src/main/java/org/apache/sqoop/tools/tool/BuiltinTools.java b/tools/src/main/java/org/apache/sqoop/tools/tool/BuiltinTools.java
+index 0045511..b24cb35 100644
+--- a/tools/src/main/java/org/apache/sqoop/tools/tool/BuiltinTools.java
++++ b/tools/src/main/java/org/apache/sqoop/tools/tool/BuiltinTools.java
+@@ -34,6 +34,7 @@
+   private static Map<String, Class<? extends Tool>> tools;
+   static {
+     tools = new HashMap<String, Class<? extends Tool>>();
++    tools.put("upgrade", UpgradeTool.class);
+     tools.put("verify", VerifyTool.class);
+   }
+ 
+diff --git a/tools/src/main/java/org/apache/sqoop/tools/tool/UpgradeTool.java b/tools/src/main/java/org/apache/sqoop/tools/tool/UpgradeTool.java
+new file mode 100644
+index 0000000..b8a15cb
+--- /dev/null
++++ b/tools/src/main/java/org/apache/sqoop/tools/tool/UpgradeTool.java
+@@ -0,0 +1,62 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.sqoop.tools.tool;
++
++import org.apache.sqoop.connector.ConnectorManager;
++import org.apache.sqoop.framework.FrameworkManager;
++import org.apache.sqoop.repository.RepositoryManager;
++import org.apache.sqoop.tools.ConfiguredTool;
++
++import org.apache.log4j.Logger;
++
++/**
++ * Upgrade all versionable components inside Sqoop2. This includes any
++ * structural changes inside repository and the Connector and Framework
++ * metadata. This tool is idempotent.
++ */
++public class UpgradeTool extends ConfiguredTool {
++
++  public static final Logger LOG = Logger.getLogger(UpgradeTool.class);
++
++  @Override
++  public boolean runToolWithConfiguration(String[] arguments) {
++    try {
++      LOG.info("Initializing the RepositoryManager with immutable option turned off.");
++      RepositoryManager.getInstance().initialize(false);
++
++      LOG.info("Initializing the FrameworkManager with upgrade option turned on.");
++      FrameworkManager.getInstance().initialize(true);
++
++      LOG.info("Initializing the FrameworkManager with upgrade option turned on.");
++      ConnectorManager.getInstance().initialize(true);
++
++      LOG.info("Upgrade completed successfully.");
++
++      LOG.info("Tearing all managers down.");
++      ConnectorManager.getInstance().destroy();
++      FrameworkManager.getInstance().destroy();
++      RepositoryManager.getInstance().destroy();
++      return true;
++    } catch (Exception ex) {
++      LOG.error("Can't finish upgrading all components:", ex);
++      System.out.println("Upgrade has failed, please check Server logs for further details.");
++      return false;
++    }
++  }
++
++}
+-- 
+1.7.0.4
+

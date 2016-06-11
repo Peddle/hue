@@ -1,0 +1,28 @@
+From e891bee078105f1dff86d42fd5ad9200ee673307 Mon Sep 17 00:00:00 2001
+From: Sean Mackrory <sean@cloudera.com>
+Date: Tue, 22 Jul 2014 09:36:44 -0700
+Subject: [PATCH 27/30] CLOUDERA-BUILD. Embedded internal git repo hash in Sqoop 2
+
+---
+ common/src/saveVersion.sh |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/common/src/saveVersion.sh b/common/src/saveVersion.sh
+index 2fc7be4..827c7fd 100755
+--- a/common/src/saveVersion.sh
++++ b/common/src/saveVersion.sh
+@@ -34,7 +34,10 @@ if [ -e "$outputFile" ]; then
+ fi
+ 
+ # Create version annotation
+-if [ -d .svn ]; then
++if [ -n "${COMPONENT_HASH}" ]; then
++  revision="${COMPONENT_HASH}"
++  url="http://github.com/cloudera/sqoop2"
++elif [ -d .svn ]; then
+   revision=`svn info | sed -n -e 's/Last Changed Rev: \(.*\)/\1/p'`
+   url=`svn info | sed -n -e 's/URL: \(.*\)/\1/p'`
+ elif [ -d ../.git ]; then
+-- 
+1.7.0.4
+

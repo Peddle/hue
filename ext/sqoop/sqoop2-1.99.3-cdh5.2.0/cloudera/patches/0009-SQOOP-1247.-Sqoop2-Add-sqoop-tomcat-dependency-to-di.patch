@@ -1,0 +1,45 @@
+From e30b5aa775372b6b25e252957432c85ff7f94511 Mon Sep 17 00:00:00 2001
+From: Hari Shreedharan <hshreedharan@apache.org>
+Date: Fri, 6 Dec 2013 10:58:15 -0800
+Subject: [PATCH 09/30] SQOOP-1247. Sqoop2: Add sqoop-tomcat dependency to distribution module.
+
+(Jarek Jarcec Cecho via Hari Shreedharan)
+---
+ dist/pom.xml |    4 ++++
+ pom.xml      |    5 +++++
+ 2 files changed, 9 insertions(+), 0 deletions(-)
+
+diff --git a/dist/pom.xml b/dist/pom.xml
+index 4ae7d66..7c8dff2 100644
+--- a/dist/pom.xml
++++ b/dist/pom.xml
+@@ -42,6 +42,10 @@ limitations under the License.
+       <groupId>org.apache.sqoop</groupId>
+       <artifactId>sqoop-shell</artifactId>
+     </dependency>
++    <dependency>
++      <groupId>org.apache.sqoop</groupId>
++      <artifactId>sqoop-tomcat</artifactId>
++    </dependency>
+   </dependencies>
+ 
+   <profiles>
+diff --git a/pom.xml b/pom.xml
+index bbaa6aa..c273ed7 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -357,6 +357,11 @@ limitations under the License.
+         <version>${project.version}</version>
+       </dependency>
+       <dependency>
++        <groupId>org.apache.sqoop</groupId>
++        <artifactId>sqoop-tomcat</artifactId>
++        <version>${project.version}</version>
++      </dependency>
++      <dependency>
+         <groupId>com.googlecode.json-simple</groupId>
+         <artifactId>json-simple</artifactId>
+         <version>${json-simple.version}</version>
+-- 
+1.7.0.4
+

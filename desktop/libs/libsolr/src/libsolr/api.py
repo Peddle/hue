@@ -519,7 +519,7 @@ class SolrApi(object):
         ('collection.configName', name),
         ('wt', 'json')
       )
-
+      
       response = self._root.post('admin/collections', params=params, contenttype='application/json')
       if 'success' in response:
         return True

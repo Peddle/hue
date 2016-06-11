@@ -1,0 +1,34 @@
+From f30151d257eb6f6e8a1ce204a107c25b7f5fce89 Mon Sep 17 00:00:00 2001
+From: Venkat Ranganathan <venkat@hortonworks.com>
+Date: Mon, 24 Feb 2014 10:23:42 -0800
+Subject: [PATCH 22/30] SQOOP-1291: Sqoop2: Binary package do not have top level commands executable
+
+(Jarek Jarcec Cecho via Venkat Ranganathan)
+---
+ dist/pom.xml |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/dist/pom.xml b/dist/pom.xml
+index 7c8dff2..def8aa9 100644
+--- a/dist/pom.xml
++++ b/dist/pom.xml
+@@ -130,7 +130,6 @@ limitations under the License.
+                     <!-- Create dist dir -->
+                     <mkdir dir="target/sqoop-${project.version}-bin-hadoop${hadoop.profile}"/>
+ 
+-
+                     <!-- Copy sources over -->
+                     <copy todir="target/sqoop-${project.version}-bin-hadoop${hadoop.profile}" includeEmptyDirs="false" flatten="false">
+                       <fileset dir="../">
+@@ -188,7 +187,7 @@ limitations under the License.
+                     <copy todir="target/sqoop-${project.version}-bin-hadoop${hadoop.profile}/bin">
+                       <fileset dir="src/main/bin"/>
+                     </copy>
+-                    <chmod dir="target/sqoop-${project.version}-bin-hadoop${hadoop.profile}/bin" perm="u+x" includes="**/*.sh"/>
++                    <chmod dir="target/sqoop-${project.version}-bin-hadoop${hadoop.profile}/bin" perm="u+x" includes="*"/>
+ 
+                     <!-- Finally create distribution tar -->
+                     <tar destfile="target/sqoop-${project.version}-bin-hadoop${hadoop.profile}.tar.gz" compression="gzip">
+-- 
+1.7.0.4
+

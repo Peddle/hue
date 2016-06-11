@@ -1,0 +1,59 @@
+From ffca2db51861529aa1087b2f9253aff9a73ee755 Mon Sep 17 00:00:00 2001
+From: Jarek Jarcec Cecho <jarcec@apache.org>
+Date: Tue, 18 Mar 2014 14:07:13 -0700
+Subject: [PATCH 25/30] Revert "SQOOP-1233. Remove unnecessary explicit call to MessageFormat."
+
+This reverts commit f3a2c576ed3cc54745489cdabadd8c3c35782911.
+---
+ .../java/org/apache/sqoop/shell/HelpCommand.java   |    8 ++++++--
+ .../org/apache/sqoop/shell/ShellEnvironment.java   |    5 +++--
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/HelpCommand.java b/shell/src/main/java/org/apache/sqoop/shell/HelpCommand.java
+index 3921b10..e8d531f 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/HelpCommand.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/HelpCommand.java
+@@ -107,8 +107,12 @@ private void list() {
+ 
+       String description = command.getDescription();
+ 
+-      print("  ");
+-      println(resource.getString(Constants.RES_HELP_CMD_DESCRIPTION), paddedName, paddedShortcut, description);
++      StringBuilder sb = new StringBuilder();
++      sb.append("  ")
++         .append(MessageFormat.format(resource.getString(Constants
++             .RES_HELP_CMD_DESCRIPTION), paddedName,
++             paddedShortcut, description));
++      println(sb.toString());
+     }
+ 
+     println();
+diff --git a/shell/src/main/java/org/apache/sqoop/shell/ShellEnvironment.java b/shell/src/main/java/org/apache/sqoop/shell/ShellEnvironment.java
+index e0924c1..8be2e54 100644
+--- a/shell/src/main/java/org/apache/sqoop/shell/ShellEnvironment.java
++++ b/shell/src/main/java/org/apache/sqoop/shell/ShellEnvironment.java
+@@ -25,6 +25,7 @@
+ 
+ import java.net.MalformedURLException;
+ import java.net.URL;
++import java.text.MessageFormat;
+ import java.util.Locale;
+ import java.util.ResourceBundle;
+ 
+@@ -173,11 +174,11 @@ public static void printlnResource(String resourceName) {
+   }
+ 
+   public static void printlnResource(String resourceName, Object... values) {
+-    io.out.printf(resourceString(resourceName), values);
++    io.out.println(MessageFormat.format(resourceString(resourceName), values));
+   }
+ 
+   public static void println(String str, Object ... values) {
+-    io.out.printf(str, values);
++    io.out.println(MessageFormat.format(str, values));
+   }
+ 
+   public static void println(String str) {
+-- 
+1.7.0.4
+

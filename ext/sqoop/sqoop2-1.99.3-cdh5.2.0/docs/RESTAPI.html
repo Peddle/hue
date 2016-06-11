@@ -1,0 +1,2054 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Sqoop REST API Guide &mdash; Apache Sqoop  documentation</title>
+    
+    <link rel="stylesheet" href="_static/haiku.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/print.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/theme_extras.js"></script>
+    <link rel="top" title="Apache Sqoop  documentation" href="index.html" /> 
+  </head>
+  <body>
+      <div class="header"><img class="rightlogo" src="_static/sqoop-logo.png" alt="Logo"/><h1 class="heading"><a href="index.html">
+          <span>Apache Sqoop  documentation</span></a></h1>
+        <h2 class="heading"><span>Sqoop REST API Guide</span></h2>
+      </div>
+      <div class="topnav">
+      
+        <p>
+        <a class="uplink" href="index.html">Contents</a>
+        </p>
+
+      </div>
+      <div class="content">
+        
+        
+  <div class="section" id="sqoop-rest-api-guide">
+<h1><a class="toc-backref" href="#id1">Sqoop REST API Guide</a><a class="headerlink" href="#sqoop-rest-api-guide" title="Permalink to this headline">¶</a></h1>
+<p>This document will explain you how to use Sqoop Network API to allow external applications interacting with Sqoop server.
+The REST API is a lower level API than the <a class="reference external" href="ClientAPI.html">Sqoop client API</a>, which gives you the freedom to execute commands in Sqoop
+server with any tools or programming language. Generally, the REST API is leveraged via HTTP requests and use <tt class="docutils literal"><span class="pre">JSON</span></tt> format to encode data content.</p>
+<div class="contents topic" id="table-of-contents">
+<p class="topic-title first">Table of Contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#sqoop-rest-api-guide" id="id1">Sqoop REST API Guide</a><ul>
+<li><a class="reference internal" href="#initialization" id="id2">Initialization</a></li>
+<li><a class="reference internal" href="#understand-connector-connection-job-and-framework" id="id3">Understand Connector, Connection, Job and Framework</a></li>
+<li><a class="reference internal" href="#objects" id="id4">Objects</a><ul>
+<li><a class="reference internal" href="#form" id="id5">Form</a></li>
+<li><a class="reference internal" href="#exception" id="id6">Exception</a></li>
+<li><a class="reference internal" href="#form-validation-status" id="id7">Form Validation Status</a></li>
+<li><a class="reference internal" href="#job-status" id="id8">Job Status</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#header-parameters" id="id9">Header Parameters</a></li>
+<li><a class="reference internal" href="#functions" id="id10">Functions</a><ul>
+<li><a class="reference internal" href="#version-get-get-sqoop-version" id="id11">/version - [GET] - Get Sqoop Version</a></li>
+<li><a class="reference internal" href="#v1-connector-cid-get-get-connector" id="id12">/v1/connector/[cid] - [GET] - Get Connector</a></li>
+<li><a class="reference internal" href="#v1-framework-get-get-sqoop-framework" id="id13">/v1/framework - [GET]- Get Sqoop Framework</a></li>
+<li><a class="reference internal" href="#v1-connection-xid-get-get-connection" id="id14">/v1/connection/[xid] - [GET] - Get Connection</a></li>
+<li><a class="reference internal" href="#v1-connection-post-create-connection" id="id15">/v1/connection - [POST] - Create Connection</a></li>
+<li><a class="reference internal" href="#v1-connection-xid-put-update-connection" id="id16">/v1/connection/[xid] - [PUT] - Update Connection</a></li>
+<li><a class="reference internal" href="#v1-connection-xid-delete-delete-connection" id="id17">/v1/connection/[xid] - [DELETE] - Delete Connection</a></li>
+<li><a class="reference internal" href="#v1-connection-xid-enable-put-enable-connection" id="id18">/v1/connection/[xid]/enable - [PUT] - Enable Connection</a></li>
+<li><a class="reference internal" href="#v1-connection-xid-disable-put-disable-connection" id="id19">/v1/connection/[xid]/disable - [PUT] - Disable Connection</a></li>
+<li><a class="reference internal" href="#v1-job-jid-get-get-job" id="id20">/v1/job/[jid] - [GET] - Get Job</a></li>
+<li><a class="reference internal" href="#v1-job-post-create-job" id="id21">/v1/job - [POST] - Create Job</a></li>
+<li><a class="reference internal" href="#v1-job-jid-put-update-job" id="id22">/v1/job/[jid] - [PUT] - Update Job</a></li>
+<li><a class="reference internal" href="#v1-job-jid-delete-delete-job" id="id23">/v1/job/[jid] - [DELETE] - Delete Job</a></li>
+<li><a class="reference internal" href="#v1-job-jid-enable-put-enable-job" id="id24">/v1/job/[jid]/enable - [PUT] - Enable Job</a></li>
+<li><a class="reference internal" href="#v1-job-jid-disable-put-disable-job" id="id25">/v1/job/[jid]/disable - [PUT] - Disable Job</a></li>
+<li><a class="reference internal" href="#v1-submission-history-jid-get-get-job-submission-history" id="id26">/v1/submission/history/[jid] - [GET] - Get Job Submission History</a></li>
+<li><a class="reference internal" href="#v1-submission-action-jid-get-get-the-latest-submission-of-a-given-job" id="id27">/v1/submission/action/[jid] - [GET]- Get The Latest Submission Of A Given Job</a></li>
+<li><a class="reference internal" href="#v1-submission-action-jid-post-submit-job" id="id28">/v1/submission/action/[jid] - [POST]- Submit Job</a></li>
+<li><a class="reference internal" href="#v1-submission-action-jid-delete-stop-job" id="id29">/v1/submission/action/[jid] - [DELETE]- Stop Job</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="initialization">
+<h2><a class="toc-backref" href="#id2">Initialization</a><a class="headerlink" href="#initialization" title="Permalink to this headline">¶</a></h2>
+<p>Before making any move, make sure that the Sqoop server is running.</p>
+<p>Then find out three pieces of information about the Sqoop server: <tt class="docutils literal"><span class="pre">host</span></tt>, <tt class="docutils literal"><span class="pre">port</span></tt> and <tt class="docutils literal"><span class="pre">webapp</span></tt>, and keep them in mind.</p>
+<p>To execute a function of Sqoop, you could assemble and send a HTTP request to an url of that function in Sqoop. Generally, the url
+contain the <tt class="docutils literal"><span class="pre">host</span></tt> has the hostname, the <tt class="docutils literal"><span class="pre">port</span></tt> as the port number and <tt class="docutils literal"><span class="pre">webapp</span></tt> as the root directory of the url, which follows
+any functions available in this page.</p>
+<p>The request and its response might need to contain some additional parameters and contents. These parameters could be given via
+HTTP header, body or both. All the content in the HTTP body is in <tt class="docutils literal"><span class="pre">JSON</span></tt> format.</p>
+</div>
+<div class="section" id="understand-connector-connection-job-and-framework">
+<h2><a class="toc-backref" href="#id3">Understand Connector, Connection, Job and Framework</a><a class="headerlink" href="#understand-connector-connection-job-and-framework" title="Permalink to this headline">¶</a></h2>
+<p>To create and run a Sqoop task, we need to provide a bunch of parameters. All these parameters are provide via Input.</p>
+<p>Some of these parameters are connector specific, which are needed for a connector. And the other parameters
+might be required all the times. Sqoop provides these specifications via forms, each of which is a list of inputs. Each connector claims its own
+forms. And the Sqoop framework claims global forms.</p>
+<p>On the other hand, some of these parameters are stable for different jobs, like the url, the username and the password of database. And some
+of them are job specific. Therefore Sqoop categorizes these parameters into 2 groups, which are connection object and job object. So, for
+each connector and the framework, it has to provide forms for connection and job, respectively.</p>
+</div>
+<div class="section" id="objects">
+<h2><a class="toc-backref" href="#id4">Objects</a><a class="headerlink" href="#objects" title="Permalink to this headline">¶</a></h2>
+<p>This section covers all the objects that might exist in the request or response.</p>
+<div class="section" id="form">
+<h3><a class="toc-backref" href="#id5">Form</a><a class="headerlink" href="#form" title="Permalink to this headline">¶</a></h3>
+<p>Before creating any connection or job, the first thing to do is getting familiar with all forms in the connector and the framework, via Get Connector
+and Get Framework HTTP requests.</p>
+<p>Each form is structured below:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="24%" />
+<col width="76%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">id</span></tt></td>
+<td>The id of this form</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">inputs</span></tt></td>
+<td>A array of input fields of this form</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">name</span></tt></td>
+<td>The name of this form</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">type</span></tt></td>
+<td>The type of this form (CONNECTION/JOB)</td>
+</tr>
+</tbody>
+</table>
+<p>A typical form object is showing below:</p>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;id&quot;:3,
+  &quot;inputs&quot;:[
+    {
+      &quot;id&quot;:13,
+      &quot;name&quot;:&quot;table.schemaName&quot;,
+      &quot;type&quot;:&quot;STRING&quot;,
+      &quot;size&quot;:50,
+      &quot;sensitive&quot;:false
+    }
+  ],
+  &quot;name&quot;:&quot;table&quot;,
+  &quot;type&quot;:&quot;CONNECTION&quot;
+}
+</pre></div>
+</div>
+<p>Each input object in a form is structured below:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="24%" />
+<col width="76%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">id</span></tt></td>
+<td>The id of this input</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">name</span></tt></td>
+<td>The name of this input</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">type</span></tt></td>
+<td>The data type of this input field</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">size</span></tt></td>
+<td>The length of this input field</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">sensitive</span></tt></td>
+<td>Whether this input contain sensitive information</td>
+</tr>
+</tbody>
+</table>
+<p>The connector and framework have both <tt class="docutils literal"><span class="pre">job-forms</span></tt> and <tt class="docutils literal"><span class="pre">conn-forms</span></tt>, each of which is a array of forms. In <tt class="docutils literal"><span class="pre">job-forms</span></tt>,
+there are 2 arrays of forms, for <tt class="docutils literal"><span class="pre">IMPORT</span></tt> and <tt class="docutils literal"><span class="pre">EXPORT</span></tt>, job respectively.</p>
+<p>To send a filled form in the request, you should always use form id and input id to map the values to inputs. For example, the
+following request contains a input value <tt class="docutils literal"><span class="pre">com.mysql.jdbc.Driver</span></tt> for input <tt class="docutils literal"><span class="pre">1</span></tt> in form <tt class="docutils literal"><span class="pre">1</span></tt> of connector and an input value
+<tt class="docutils literal"><span class="pre">10</span></tt> for input <tt class="docutils literal"><span class="pre">17</span></tt> in form <tt class="docutils literal"><span class="pre">4</span></tt> of framework.</p>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;connector&quot;:[
+    {
+      &quot;id&quot;:1,
+      &quot;inputs&quot;:[
+        {
+          &quot;id&quot;:1,
+          &quot;name&quot;:&quot;connection.jdbcDriver&quot;,
+          &quot;value&quot;:&quot;com.mysql.jdbc.Driver&quot;,
+          &quot;type&quot;:&quot;STRING&quot;,
+          &quot;size&quot;:128,
+          &quot;sensitive&quot;:false
+        },
+      ],
+      &quot;name&quot;:&quot;connection&quot;,
+      &quot;type&quot;:&quot;CONNECTION&quot;
+    }
+  ],
+  &quot;connector-id&quot;:1,
+  &quot;framework&quot;:[
+    {
+      &quot;id&quot;:4,
+      &quot;inputs&quot;:[
+        {
+          &quot;id&quot;:17,
+          &quot;name&quot;:&quot;security.maxConnections&quot;,
+          &quot;value&quot;:&quot;10&quot;,
+          &quot;type&quot;:&quot;INTEGER&quot;,
+          &quot;sensitive&quot;:false
+        }
+      ],
+      &quot;name&quot;:&quot;security&quot;,
+      &quot;type&quot;:&quot;CONNECTION&quot;
+    }
+  ]
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="exception">
+<h3><a class="toc-backref" href="#id6">Exception</a><a class="headerlink" href="#exception" title="Permalink to this headline">¶</a></h3>
+<p>Each operation on Sqoop server might return an exception in the Http response. Remember to take this into account.</p>
+<p>The exception code and message could be found in both the header and body of the response, if happens.</p>
+<p>Please jump to &#8220;Header Parameters&#8221; section to find how to get exception information from header.</p>
+<p>In the body, the exception is expressed in <tt class="docutils literal"><span class="pre">JSON</span></tt> format. An example of the exception is:</p>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;message&quot;:&quot;DERBYREPO_0030:Unable to load specific job metadata from repository - Couldn&#39;t find job with id 2&quot;,
+  &quot;stack-trace&quot;:[
+    {
+      &quot;file&quot;:&quot;DerbyRepositoryHandler.java&quot;,
+      &quot;line&quot;:1111,
+      &quot;class&quot;:&quot;org.apache.sqoop.repository.derby.DerbyRepositoryHandler&quot;,
+      &quot;method&quot;:&quot;findJob&quot;
+    },
+    {
+      &quot;file&quot;:&quot;JdbcRepository.java&quot;,
+      &quot;line&quot;:451,
+      &quot;class&quot;:&quot;org.apache.sqoop.repository.JdbcRepository$16&quot;,
+      &quot;method&quot;:&quot;doIt&quot;
+    },
+    {
+      &quot;file&quot;:&quot;JdbcRepository.java&quot;,
+      &quot;line&quot;:90,
+      &quot;class&quot;:&quot;org.apache.sqoop.repository.JdbcRepository&quot;,
+      &quot;method&quot;:&quot;doWithConnection&quot;
+    },
+    {
+      &quot;file&quot;:&quot;JdbcRepository.java&quot;,
+      &quot;line&quot;:61,
+      &quot;class&quot;:&quot;org.apache.sqoop.repository.JdbcRepository&quot;,
+      &quot;method&quot;:&quot;doWithConnection&quot;
+    },
+    {
+      &quot;file&quot;:&quot;JdbcRepository.java&quot;,
+      &quot;line&quot;:448,
+      &quot;class&quot;:&quot;org.apache.sqoop.repository.JdbcRepository&quot;,
+      &quot;method&quot;:&quot;findJob&quot;
+    },
+    {
+      &quot;file&quot;:&quot;JobRequestHandler.java&quot;,
+      &quot;line&quot;:238,
+      &quot;class&quot;:&quot;org.apache.sqoop.handler.JobRequestHandler&quot;,
+      &quot;method&quot;:&quot;getJobs&quot;
+    }
+  ],
+  &quot;class&quot;:&quot;org.apache.sqoop.common.SqoopException&quot;
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="form-validation-status">
+<h3><a class="toc-backref" href="#id7">Form Validation Status</a><a class="headerlink" href="#form-validation-status" title="Permalink to this headline">¶</a></h3>
+<p>After submitting the forms of creating/updating connection/job, the server will validate these forms and send
+back feedbacks to show the validation status.</p>
+<p>There are 3 possible status:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="24%" />
+<col width="76%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Status</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">FINE</span></tt></td>
+<td>No issues, no warnings. Everything is perfect</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">ACCEPTABLE</span></tt></td>
+<td>No issues, but might be some warnings. Good to go.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">UNACCEPTABLE</span></tt></td>
+<td>The form has severe issues needed to be fixed</td>
+</tr>
+</tbody>
+</table>
+<p>An example of a good status is:</p>
+<div class="highlight-none"><div class="highlight"><pre>{
+ &quot;status&quot;:&quot;FINE&quot;,
+ &quot;messages&quot;:{}
+}
+</pre></div>
+</div>
+<p>A bad status might be:</p>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;message&quot;:&quot;Can&#39;t load specified driver&quot;,
+  &quot;status&quot;:&quot;UNACCEPTABLE&quot;
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="job-status">
+<h3><a class="toc-backref" href="#id8">Job Status</a><a class="headerlink" href="#job-status" title="Permalink to this headline">¶</a></h3>
+<p>After submitting a job, you could look up the running status of it. There could be 7 possible status:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="34%" />
+<col width="66%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Status</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">BOOTING</span></tt></td>
+<td>In the middle of submitting the job</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">FAILURE_ON_SUBMIT</span></tt></td>
+<td>Unable to submit this job to remote cluster</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">RUNNING</span></tt></td>
+<td>The job is running now</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">SUCCEEDED</span></tt></td>
+<td>Job finished successfully</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">FAILED</span></tt></td>
+<td>Job failed</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">NEVER_EXECUTED</span></tt></td>
+<td>The job has never been executed since created</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">UNKNOWN</span></tt></td>
+<td>The status is unknown</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="header-parameters">
+<h2><a class="toc-backref" href="#id9">Header Parameters</a><a class="headerlink" href="#header-parameters" title="Permalink to this headline">¶</a></h2>
+<p>For all Sqoop requests, the following header parameters are supported:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="29%" />
+<col width="11%" />
+<col width="61%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Parameter</th>
+<th class="head">Required</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">sqoop-user-name</span></tt></td>
+<td>true</td>
+<td>The name of the user who makes the requests</td>
+</tr>
+</tbody>
+</table>
+<p>For all the responses, the following parameters in the HTTP message header are available:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="9%" />
+<col width="68%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Parameter</th>
+<th class="head">Required</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">sqoop-error-code</span></tt></td>
+<td>false</td>
+<td>The error code when some error happen in the server side for this request</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">sqoop-error-message</span></tt></td>
+<td>false</td>
+<td>The explanation for a error code</td>
+</tr>
+</tbody>
+</table>
+<p>So far, there are only these 2 parameters in the header of response message. They only exist when something bad happen in the server.
+And they always come along with an exception message in the response body.</p>
+</div>
+<div class="section" id="functions">
+<h2><a class="toc-backref" href="#id10">Functions</a><a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h2>
+<p>The section elaborates all the functions that are supported by the Sqoop server.</p>
+<div class="section" id="version-get-get-sqoop-version">
+<h3><a class="toc-backref" href="#id11">/version - [GET] - Get Sqoop Version</a><a class="headerlink" href="#version-get-get-sqoop-version" title="Permalink to this headline">¶</a></h3>
+<p>Get all the version metadata of Sqoop software in the server side.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">GET</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="21%" />
+<col width="79%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">revision</span></tt></td>
+<td>The revision number of Sqoop source code</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">protocols</span></tt></td>
+<td>The version of network protocol</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">date</span></tt></td>
+<td>The Sqoop release date</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">user</span></tt></td>
+<td>The user who made the release</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">url</span></tt></td>
+<td>The url of the source code trunk</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">version</span></tt></td>
+<td>The version of Sqoop in the server side</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;revision&quot;:&quot;e56c977b56f4dc32a4cad06a328bad11e0d0055b&quot;,
+  &quot;protocols&quot;:[&quot;1&quot;],
+  &quot;date&quot;:&quot;Wed Aug  7 13:31:36 PDT 2013&quot;,
+  &quot;user&quot;:&quot;mengwei.ding&quot;,
+  &quot;url&quot;:&quot;git:\/\/mding-MBP.local\/Users\/mengwei.ding\/Documents\/workspace\/sqoop2\/common&quot;,
+  &quot;version&quot;:&quot;2.0.0-SNAPSHOT&quot;
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-connector-cid-get-get-connector">
+<h3><a class="toc-backref" href="#id12">/v1/connector/[cid] - [GET] - Get Connector</a><a class="headerlink" href="#v1-connector-cid-get-get-connector" title="Permalink to this headline">¶</a></h3>
+<p>Retrieve all the metadata of a given connector, such as its forms to be filled for jobs and connections, the explanation
+for each fields of these forms.</p>
+<p>Provide the id of the connector in the url <tt class="docutils literal"><span class="pre">[cid]</span></tt> part. If you provide <tt class="docutils literal"><span class="pre">all</span></tt> in the <tt class="docutils literal"><span class="pre">[cid]</span></tt> part in the url, you will
+get the metadata of all connectors.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">GET</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="26%" />
+<col width="74%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">resources-connector</span></tt></td>
+<td>All resources for the given connector</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">all</span></tt></td>
+<td>All metadata about the given connector, such as id, name and all forms</td>
+</tr>
+</tbody>
+</table>
+<p>If all connectors are retrieved, the <tt class="docutils literal"><span class="pre">resources-connector</span></tt> and <tt class="docutils literal"><span class="pre">all</span></tt> fields will become arrays and contain data for all connectors.</p>
+<p>So far, the resource contains only explanations for fields of forms. For example, in the IMPORT job form, you could find a field called
+<tt class="docutils literal"><span class="pre">table.schemaName</span></tt>. If you have no idea about what that field means, you could go the resource for help.</p>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;resources-connector&quot;:{
+    &quot;1&quot;:{
+      &quot;ignored.label&quot;:&quot;Ignored&quot;,
+      &quot;table.partitionColumn.help&quot;:&quot;A specific column for data partition&quot;,
+      &quot;table.label&quot;:&quot;Database configuration&quot;,
+      &quot;table.boundaryQuery.label&quot;:&quot;Boundary query&quot;,
+      &quot;ignored.help&quot;:&quot;This is completely ignored&quot;,
+      &quot;ignored.ignored.label&quot;:&quot;Ignored&quot;,
+      &quot;connection.jdbcProperties.help&quot;:&quot;Enter any JDBC properties that should be supplied during the creation of connection.&quot;,
+      &quot;table.tableName.help&quot;:&quot;Table name to process data in the remote database&quot;,
+      &quot;connection.jdbcDriver.label&quot;:&quot;JDBC Driver Class&quot;,
+      &quot;connection.username.help&quot;:&quot;Enter the username to be used for connecting to the database.&quot;,
+      &quot;table.help&quot;:&quot;You must supply the information requested in order to create a job object.&quot;,
+      &quot;table.partitionColumn.label&quot;:&quot;Partition column name&quot;,
+      &quot;ignored.ignored.help&quot;:&quot;This is completely ignored&quot;,
+      &quot;table.partitionColumnNull.label&quot;:&quot;Nulls in partition column&quot;,
+      &quot;table.warehouse.label&quot;:&quot;Data warehouse&quot;,
+      &quot;table.boundaryQuery.help&quot;:&quot;The boundary query for data partition&quot;,
+      &quot;connection.username.label&quot;:&quot;Username&quot;,
+      &quot;connection.jdbcDriver.help&quot;:&quot;Enter the fully qualified class name of the JDBC driver that will be used for establishing this connection.&quot;,
+      &quot;connection.label&quot;:&quot;Connection configuration&quot;,
+      &quot;table.columns.label&quot;:&quot;Table column names&quot;,
+      &quot;table.dataDirectory.label&quot;:&quot;Data directory&quot;,
+      &quot;table.partitionColumnNull.help&quot;:&quot;Whether there are null values in partition column&quot;,
+      &quot;connection.password.label&quot;:&quot;Password&quot;,
+      &quot;table.warehouse.help&quot;:&quot;The root directory for data&quot;,
+      &quot;table.sql.label&quot;:&quot;Table SQL statement&quot;,
+      &quot;table.sql.help&quot;:&quot;SQL statement to process data in the remote database&quot;,
+      &quot;table.schemaName.help&quot;:&quot;Schema name to process data in the remote database&quot;,
+      &quot;connection.jdbcProperties.label&quot;:&quot;JDBC Connection Properties&quot;,
+      &quot;table.columns.help&quot;:&quot;Specific columns of a table name or a table SQL&quot;,
+      &quot;connection.connectionString.help&quot;:&quot;Enter the value of JDBC connection string to be used by this connector for creating connections.&quot;,
+      &quot;table.dataDirectory.help&quot;:&quot;The sub-directory under warehouse for data&quot;,
+      &quot;table.schemaName.label&quot;:&quot;Schema name&quot;,
+      &quot;connection.connectionString.label&quot;:&quot;JDBC Connection String&quot;,
+      &quot;connection.help&quot;:&quot;You must supply the information requested in order to create a connection object.&quot;,
+      &quot;connection.password.help&quot;:&quot;Enter the password to be used for connecting to the database.&quot;,
+      &quot;table.tableName.label&quot;:&quot;Table name&quot;
+    }
+  },
+  &quot;all&quot;:[
+    {
+      &quot;id&quot;:1,
+      &quot;name&quot;:&quot;generic-jdbc-connector&quot;,
+      &quot;class&quot;:&quot;org.apache.sqoop.connector.jdbc.GenericJdbcConnector&quot;,
+      &quot;job-forms&quot;:{
+        &quot;IMPORT&quot;:[
+          {
+            &quot;id&quot;:2,
+            &quot;inputs&quot;:[
+              {
+                &quot;id&quot;:6,
+                &quot;name&quot;:&quot;table.schemaName&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:50,
+                &quot;sensitive&quot;:false
+              },
+              {
+                &quot;id&quot;:7,
+                &quot;name&quot;:&quot;table.tableName&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:50,
+                &quot;sensitive&quot;:false
+              },
+              {
+                &quot;id&quot;:8,
+                &quot;name&quot;:&quot;table.sql&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:2000,
+                &quot;sensitive&quot;:false
+              },
+              {
+                &quot;id&quot;:9,
+                &quot;name&quot;:&quot;table.columns&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:50,
+                &quot;sensitive&quot;:false
+              },
+              {
+                &quot;id&quot;:10,
+                &quot;name&quot;:&quot;table.partitionColumn&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:50,
+                &quot;sensitive&quot;:false
+              },
+              {
+                &quot;id&quot;:11,
+                &quot;name&quot;:&quot;table.partitionColumnNull&quot;,
+                &quot;type&quot;:&quot;BOOLEAN&quot;,
+                &quot;sensitive&quot;:false
+              },
+              {
+                &quot;id&quot;:12,
+                &quot;name&quot;:&quot;table.boundaryQuery&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:50,
+                &quot;sensitive&quot;:false
+              }
+            ],
+            &quot;name&quot;:&quot;table&quot;,
+            &quot;type&quot;:&quot;CONNECTION&quot;
+          }
+        ],
+        &quot;EXPORT&quot;:[
+          {
+            &quot;id&quot;:3,
+            &quot;inputs&quot;:[
+              {
+                &quot;id&quot;:13,
+                &quot;name&quot;:&quot;table.schemaName&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:50,
+                &quot;sensitive&quot;:false
+              },
+              {
+                &quot;id&quot;:14,
+                &quot;name&quot;:&quot;table.tableName&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:2000,
+                &quot;sensitive&quot;:false
+              },
+              {
+                &quot;id&quot;:15,
+                &quot;name&quot;:&quot;table.sql&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:50,
+                &quot;sensitive&quot;:false
+              },
+              {
+                &quot;id&quot;:16,
+                &quot;name&quot;:&quot;table.columns&quot;,
+                &quot;type&quot;:&quot;STRING&quot;,
+                &quot;size&quot;:50,
+                &quot;sensitive&quot;:false
+              }
+            ],
+            &quot;name&quot;:&quot;table&quot;,
+            &quot;type&quot;:&quot;CONNECTION&quot;
+          }
+        ]
+      },
+      &quot;con-forms&quot;:[
+        {
+          &quot;id&quot;:1,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:1,
+              &quot;name&quot;:&quot;connection.jdbcDriver&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:128,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:2,
+              &quot;name&quot;:&quot;connection.connectionString&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:128,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:3,
+              &quot;name&quot;:&quot;connection.username&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:40,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:4,
+              &quot;name&quot;:&quot;connection.password&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:40,
+              &quot;sensitive&quot;:true
+            },
+            {
+              &quot;id&quot;:5,
+              &quot;name&quot;:&quot;connection.jdbcProperties&quot;,
+              &quot;type&quot;:&quot;MAP&quot;,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;connection&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        }
+      ],
+      &quot;version&quot;:&quot;2.0.0-SNAPSHOT&quot;
+    }
+  ]
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-framework-get-get-sqoop-framework">
+<h3><a class="toc-backref" href="#id13">/v1/framework - [GET]- Get Sqoop Framework</a><a class="headerlink" href="#v1-framework-get-get-sqoop-framework" title="Permalink to this headline">¶</a></h3>
+<p>Retrieve all metadata of Sqoop framework. The metadata include all the form fields that are required to all Sqoop objects, such as connection and jobs.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">GET</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="21%" />
+<col width="79%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">id</span></tt></td>
+<td>The id for Sqoop framework (It should be always be 1, since there is always 1 framework out there)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">resources</span></tt></td>
+<td>All resources for Sqoop framework</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">framework-version</span></tt></td>
+<td>The version of Sqoop framework</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">job-forms</span></tt></td>
+<td>Framework&#8217;s Job Configuration forms</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">con-forms</span></tt></td>
+<td>Framework&#8217;s connection configuration forms</td>
+</tr>
+</tbody>
+</table>
+<p>The framework and connector might contain several forms to be filled for job or connection object. Many parameters for job and connection
+are categorize into different classes, which are know as forms. Each form has its id and name. In job and connection objects, they use
+the id of the form to track these parameter inputs.</p>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;id&quot;:1,
+  &quot;resources&quot;:{
+    &quot;output.label&quot;:&quot;Output configuration&quot;,
+    &quot;security.maxConnections.help&quot;:&quot;Maximal number of connections that this connection object can use at one point in time&quot;,
+    &quot;output.storageType.label&quot;:&quot;Storage type&quot;,
+    &quot;output.ignored.help&quot;:&quot;This value is ignored&quot;,
+    &quot;input.label&quot;:&quot;Input configuration&quot;,
+    &quot;security.help&quot;:&quot;You must supply the information requested in order to create a job object.&quot;,
+    &quot;output.storageType.help&quot;:&quot;Target on Hadoop ecosystem where to store data&quot;,
+    &quot;input.inputDirectory.help&quot;:&quot;Directory that should be exported&quot;,
+    &quot;output.outputFormat.label&quot;:&quot;Output format&quot;,
+    &quot;output.ignored.label&quot;:&quot;Ignored&quot;,
+    &quot;output.outputFormat.help&quot;:&quot;Format in which data should be serialized&quot;,
+    &quot;output.help&quot;:&quot;You must supply the information requested in order to get information where you want to store your data.&quot;,
+    &quot;throttling.help&quot;:&quot;Set throttling boundaries to not overload your systems&quot;,
+    &quot;input.inputDirectory.label&quot;:&quot;Input directory&quot;,
+    &quot;throttling.loaders.label&quot;:&quot;Loaders&quot;,
+    &quot;input.help&quot;:&quot;Specifies information required to get data from Hadoop ecosystem&quot;,
+    &quot;throttling.extractors.label&quot;:&quot;Extractors&quot;,
+    &quot;throttling.extractors.help&quot;:&quot;Number of extractors that Sqoop will use&quot;,
+    &quot;security.label&quot;:&quot;Security related configuration options&quot;,
+    &quot;throttling.label&quot;:&quot;Throttling resources&quot;,
+    &quot;throttling.loaders.help&quot;:&quot;Number of loaders that Sqoop will use&quot;,
+    &quot;output.outputDirectory.help&quot;:&quot;Output directory for final data&quot;,
+    &quot;security.maxConnections.label&quot;:&quot;Max connections&quot;,
+    &quot;output.outputDirectory.label&quot;:&quot;Output directory&quot;
+  },
+  &quot;framework-version&quot;:&quot;1&quot;,
+  &quot;job-forms&quot;:{
+    &quot;IMPORT&quot;:[
+      {
+        &quot;id&quot;:5,
+        &quot;inputs&quot;:[
+          {
+            &quot;id&quot;:18,
+            &quot;values&quot;:&quot;HDFS&quot;,
+            &quot;name&quot;:&quot;output.storageType&quot;,
+            &quot;type&quot;:&quot;ENUM&quot;,
+            &quot;sensitive&quot;:false
+          },
+          {
+            &quot;id&quot;:19,
+            &quot;values&quot;:&quot;TEXT_FILE,SEQUENCE_FILE&quot;,
+            &quot;name&quot;:&quot;output.outputFormat&quot;,
+            &quot;type&quot;:&quot;ENUM&quot;,
+            &quot;sensitive&quot;:false
+          },
+          {
+            &quot;id&quot;:20,
+            &quot;name&quot;:&quot;output.outputDirectory&quot;,
+            &quot;type&quot;:&quot;STRING&quot;,
+            &quot;size&quot;:255,
+            &quot;sensitive&quot;:false
+          }
+        ],
+        &quot;name&quot;:&quot;output&quot;,
+        &quot;type&quot;:&quot;CONNECTION&quot;
+      },
+      {
+        &quot;id&quot;:6,
+        &quot;inputs&quot;:[
+          {
+            &quot;id&quot;:21,
+            &quot;name&quot;:&quot;throttling.extractors&quot;,
+            &quot;type&quot;:&quot;INTEGER&quot;,
+            &quot;sensitive&quot;:false
+          },
+          {
+            &quot;id&quot;:22,
+            &quot;name&quot;:&quot;throttling.loaders&quot;,
+            &quot;type&quot;:&quot;INTEGER&quot;,
+            &quot;sensitive&quot;:false
+          }
+        ],
+        &quot;name&quot;:&quot;throttling&quot;,
+        &quot;type&quot;:&quot;CONNECTION&quot;
+      }
+    ],
+    &quot;EXPORT&quot;:[
+      {
+        &quot;id&quot;:7,
+        &quot;inputs&quot;:[
+          {
+            &quot;id&quot;:23,
+            &quot;name&quot;:&quot;input.inputDirectory&quot;,
+            &quot;type&quot;:&quot;STRING&quot;,
+            &quot;size&quot;:255,
+            &quot;sensitive&quot;:false
+          }
+        ],
+        &quot;name&quot;:&quot;input&quot;,
+        &quot;type&quot;:&quot;CONNECTION&quot;
+      },
+      {
+        &quot;id&quot;:8,
+        &quot;inputs&quot;:[
+          {
+            &quot;id&quot;:24,
+            &quot;name&quot;:&quot;throttling.extractors&quot;,
+            &quot;type&quot;:&quot;INTEGER&quot;,
+            &quot;sensitive&quot;:false
+          },
+          {
+            &quot;id&quot;:25,
+            &quot;name&quot;:&quot;throttling.loaders&quot;,
+            &quot;type&quot;:&quot;INTEGER&quot;,
+            &quot;sensitive&quot;:false
+          }
+        ],
+        &quot;name&quot;:&quot;throttling&quot;,
+        &quot;type&quot;:&quot;CONNECTION&quot;
+      }
+    ]
+  },
+  &quot;con-forms&quot;:[
+    {
+      &quot;id&quot;:4,
+      &quot;inputs&quot;:[
+        {
+          &quot;id&quot;:17,
+          &quot;name&quot;:&quot;security.maxConnections&quot;,
+          &quot;type&quot;:&quot;INTEGER&quot;,
+          &quot;sensitive&quot;:false
+        }
+      ],
+      &quot;name&quot;:&quot;security&quot;,
+      &quot;type&quot;:&quot;CONNECTION&quot;
+    }
+  ]
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-connection-xid-get-get-connection">
+<h3><a class="toc-backref" href="#id14">/v1/connection/[xid] - [GET] - Get Connection</a><a class="headerlink" href="#v1-connection-xid-get-get-connection" title="Permalink to this headline">¶</a></h3>
+<p>Retrieve all the metadata of a given connection, such as its values for different fields of connector form and sqoop framework form.</p>
+<p>Provide the id of the connector in the url [xid] part. If you provide <tt class="docutils literal"><span class="pre">all</span></tt> in the [xid] part in the url, you will get the metadata of all connections.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">GET</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">resources-connector</span></tt></td>
+<td>All resources for the given connector</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">resources-framework</span></tt></td>
+<td>All resources related with Sqoop framework</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">all</span></tt></td>
+<td>All metadata about the given connection, such as id, name and all form input values</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;resources-connector&quot;:{
+    &quot;1&quot;:{
+      &quot;ignored.label&quot;:&quot;Ignored&quot;,
+      &quot;table.partitionColumn.help&quot;:&quot;A specific column for data partition&quot;,
+      &quot;table.label&quot;:&quot;Database configuration&quot;,
+      &quot;table.boundaryQuery.label&quot;:&quot;Boundary query&quot;,
+      &quot;ignored.help&quot;:&quot;This is completely ignored&quot;,
+      &quot;ignored.ignored.label&quot;:&quot;Ignored&quot;,
+      &quot;connection.jdbcProperties.help&quot;:&quot;Enter any JDBC properties that should be supplied during the creation of connection.&quot;,
+      &quot;table.tableName.help&quot;:&quot;Table name to process data in the remote database&quot;,
+      &quot;connection.jdbcDriver.label&quot;:&quot;JDBC Driver Class&quot;,
+      &quot;connection.username.help&quot;:&quot;Enter the username to be used for connecting to the database.&quot;,
+      &quot;table.help&quot;:&quot;You must supply the information requested in order to create a job object.&quot;,
+      &quot;table.partitionColumn.label&quot;:&quot;Partition column name&quot;,
+      &quot;ignored.ignored.help&quot;:&quot;This is completely ignored&quot;,
+      &quot;table.partitionColumnNull.label&quot;:&quot;Nulls in partition column&quot;,
+      &quot;table.warehouse.label&quot;:&quot;Data warehouse&quot;,
+      &quot;table.boundaryQuery.help&quot;:&quot;The boundary query for data partition&quot;,
+      &quot;connection.username.label&quot;:&quot;Username&quot;,
+      &quot;connection.jdbcDriver.help&quot;:&quot;Enter the fully qualified class name of the JDBC driver that will be used for establishing this connection.&quot;,
+      &quot;connection.label&quot;:&quot;Connection configuration&quot;,
+      &quot;table.columns.label&quot;:&quot;Table column names&quot;,
+      &quot;table.dataDirectory.label&quot;:&quot;Data directory&quot;,
+      &quot;table.partitionColumnNull.help&quot;:&quot;Whether there are null values in partition column&quot;,
+      &quot;connection.password.label&quot;:&quot;Password&quot;,
+      &quot;table.warehouse.help&quot;:&quot;The root directory for data&quot;,
+      &quot;table.sql.label&quot;:&quot;Table SQL statement&quot;,
+      &quot;table.sql.help&quot;:&quot;SQL statement to process data in the remote database&quot;,
+      &quot;table.schemaName.help&quot;:&quot;Schema name to process data in the remote database&quot;,
+      &quot;connection.jdbcProperties.label&quot;:&quot;JDBC Connection Properties&quot;,
+      &quot;table.columns.help&quot;:&quot;Specific columns of a table name or a table SQL&quot;,
+      &quot;connection.connectionString.help&quot;:&quot;Enter the value of JDBC connection string to be used by this connector for creating connections.&quot;,
+      &quot;table.dataDirectory.help&quot;:&quot;The sub-directory under warehouse for data&quot;,
+      &quot;table.schemaName.label&quot;:&quot;Schema name&quot;,
+      &quot;connection.connectionString.label&quot;:&quot;JDBC Connection String&quot;,
+      &quot;connection.help&quot;:&quot;You must supply the information requested in order to create a connection object.&quot;,
+      &quot;connection.password.help&quot;:&quot;Enter the password to be used for connecting to the database.&quot;,
+      &quot;table.tableName.label&quot;:&quot;Table name&quot;
+    }
+  },
+  &quot;resources-framework&quot;:{
+    &quot;output.label&quot;:&quot;Output configuration&quot;,
+    &quot;security.maxConnections.help&quot;:&quot;Maximal number of connections that this connection object can use at one point in time&quot;,
+    &quot;output.storageType.label&quot;:&quot;Storage type&quot;,
+    &quot;output.ignored.help&quot;:&quot;This value is ignored&quot;,
+    &quot;input.label&quot;:&quot;Input configuration&quot;,
+    &quot;security.help&quot;:&quot;You must supply the information requested in order to create a job object.&quot;,
+    &quot;output.storageType.help&quot;:&quot;Target on Hadoop ecosystem where to store data&quot;,
+    &quot;input.inputDirectory.help&quot;:&quot;Directory that should be exported&quot;,
+    &quot;output.outputFormat.label&quot;:&quot;Output format&quot;,
+    &quot;output.ignored.label&quot;:&quot;Ignored&quot;,
+    &quot;output.outputFormat.help&quot;:&quot;Format in which data should be serialized&quot;,
+    &quot;output.help&quot;:&quot;You must supply the information requested in order to get information where you want to store your data.&quot;,
+    &quot;throttling.help&quot;:&quot;Set throttling boundaries to not overload your systems&quot;,
+    &quot;input.inputDirectory.label&quot;:&quot;Input directory&quot;,
+    &quot;throttling.loaders.label&quot;:&quot;Loaders&quot;,
+    &quot;input.help&quot;:&quot;Specifies information required to get data from Hadoop ecosystem&quot;,
+    &quot;throttling.extractors.label&quot;:&quot;Extractors&quot;,
+    &quot;throttling.extractors.help&quot;:&quot;Number of extractors that Sqoop will use&quot;,
+    &quot;security.label&quot;:&quot;Security related configuration options&quot;,
+    &quot;throttling.label&quot;:&quot;Throttling resources&quot;,
+    &quot;throttling.loaders.help&quot;:&quot;Number of loaders that Sqoop will use&quot;,
+    &quot;output.outputDirectory.help&quot;:&quot;Output directory for final data&quot;,
+    &quot;security.maxConnections.label&quot;:&quot;Max connections&quot;,
+    &quot;output.outputDirectory.label&quot;:&quot;Output directory&quot;
+  },
+  &quot;all&quot;:[
+    {
+      &quot;id&quot;:1,
+      &quot;enabled&quot;:true,
+      &quot;updated&quot;:1375912819893,
+      &quot;created&quot;:1375912819893,
+      &quot;name&quot;:&quot;First connection&quot;,
+      &quot;connector&quot;:[
+        {
+          &quot;id&quot;:1,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:1,
+              &quot;name&quot;:&quot;connection.jdbcDriver&quot;,
+              &quot;value&quot;:&quot;com.mysql.jdbc.Driver&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:128,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:2,
+              &quot;name&quot;:&quot;connection.connectionString&quot;,
+              &quot;value&quot;:&quot;jdbc%3Amysql%3A%2F%2Flocalhost%2Ftest&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:128,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:3,
+              &quot;name&quot;:&quot;connection.username&quot;,
+              &quot;value&quot;:&quot;root&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:40,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:4,
+              &quot;name&quot;:&quot;connection.password&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:40,
+              &quot;sensitive&quot;:true
+            },
+            {
+              &quot;id&quot;:5,
+              &quot;name&quot;:&quot;connection.jdbcProperties&quot;,
+              &quot;type&quot;:&quot;MAP&quot;,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;connection&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        }
+      ],
+      &quot;connector-id&quot;:1,
+      &quot;framework&quot;:[
+        {
+          &quot;id&quot;:4,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:17,
+              &quot;name&quot;:&quot;security.maxConnections&quot;,
+              &quot;value&quot;:&quot;10&quot;,
+              &quot;type&quot;:&quot;INTEGER&quot;,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;security&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        }
+      ]
+    }
+  ]
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-connection-post-create-connection">
+<h3><a class="toc-backref" href="#id15">/v1/connection - [POST] - Create Connection</a><a class="headerlink" href="#v1-connection-post-create-connection" title="Permalink to this headline">¶</a></h3>
+<p>Create a new connection object. Try your best to provide values for as many as inputs of
+connection forms from both connectors and framework.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">POST</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Fields of Request:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">all</span></tt></td>
+<td>Request array, in which each element is an independent request</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">id</span></tt></td>
+<td>The id of the connection. Useless here, because we don&#8217;t know the id before creation</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">enabled</span></tt></td>
+<td>Whether to enable this connection (true/false)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">updated</span></tt></td>
+<td>The last updated time of this connection</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">created</span></tt></td>
+<td>The creation time of this connection</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">name</span></tt></td>
+<td>The name of this connection</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">connector</span></tt></td>
+<td>Filled inputs for connector forms for this connection</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">connector-id</span></tt></td>
+<td>The id of the connector used for this connection</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">framework</span></tt></td>
+<td>Filled inputs for framework forms for this connection</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Request Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;all&quot;:[
+    {
+      &quot;id&quot;:-1,
+      &quot;enabled&quot;:true,
+      &quot;updated&quot;:1375919952017,
+      &quot;created&quot;:1375919952017,
+      &quot;name&quot;:&quot;First connection&quot;,
+      &quot;connector&quot;:[
+        {
+          &quot;id&quot;:1,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:1,
+              &quot;name&quot;:&quot;connection.jdbcDriver&quot;,
+              &quot;value&quot;:&quot;com.mysql.jdbc.Driver&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:128,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:2,
+              &quot;name&quot;:&quot;connection.connectionString&quot;,
+              &quot;value&quot;:&quot;jdbc%3Amysql%3A%2F%2Flocalhost%2Ftest&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:128,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:3,
+              &quot;name&quot;:&quot;connection.username&quot;,
+              &quot;value&quot;:&quot;root&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:40,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:4,
+              &quot;name&quot;:&quot;connection.password&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:40,
+              &quot;sensitive&quot;:true
+            },
+            {
+              &quot;id&quot;:5,
+              &quot;name&quot;:&quot;connection.jdbcProperties&quot;,
+              &quot;type&quot;:&quot;MAP&quot;,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;connection&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        }
+      ],
+      &quot;connector-id&quot;:1,
+      &quot;framework&quot;:[
+        {
+          &quot;id&quot;:4,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:17,
+              &quot;name&quot;:&quot;security.maxConnections&quot;,
+              &quot;value&quot;:&quot;10&quot;,
+              &quot;type&quot;:&quot;INTEGER&quot;,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;security&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        }
+      ]
+    }
+  ]
+}
+</pre></div>
+</div>
+<ul class="simple">
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">id</span></tt></td>
+<td>The id assigned for this new created connection</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">connector</span></tt></td>
+<td>The validation status for the inputs of connector forms, provided by the request</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">framework</span></tt></td>
+<td>The validation status for the inputs of connector forms, provided by the request</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;id&quot;:1,
+  &quot;connector&quot;:{
+    &quot;status&quot;:&quot;FINE&quot;,
+    &quot;messages&quot;:{
+
+    }
+  },
+  &quot;framework&quot;:{
+    &quot;status&quot;:&quot;FINE&quot;,
+    &quot;messages&quot;:{
+
+    }
+  }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-connection-xid-put-update-connection">
+<h3><a class="toc-backref" href="#id16">/v1/connection/[xid] - [PUT] - Update Connection</a><a class="headerlink" href="#v1-connection-xid-put-update-connection" title="Permalink to this headline">¶</a></h3>
+<p>Update an existing connection object with id [xid]. To make the procedure of filling inputs easier, the general practice
+is get the connection first and then change some of the inputs.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">PUT</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Fields of Request:</li>
+</ul>
+<p>The same as Create Connection.</p>
+<ul class="simple">
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">connector</span></tt></td>
+<td>The validation status for the inputs of connector forms, provided by the request</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">framework</span></tt></td>
+<td>The validation status for the inputs of connector forms, provided by the request</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;connector&quot;:{
+    &quot;status&quot;:&quot;FINE&quot;,
+    &quot;messages&quot;:{
+
+    }
+  },
+  &quot;framework&quot;:{
+    &quot;status&quot;:&quot;FINE&quot;,
+    &quot;messages&quot;:{
+
+    }
+  }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-connection-xid-delete-delete-connection">
+<h3><a class="toc-backref" href="#id17">/v1/connection/[xid] - [DELETE] - Delete Connection</a><a class="headerlink" href="#v1-connection-xid-delete-delete-connection" title="Permalink to this headline">¶</a></h3>
+<p>Delete a connection with id <tt class="docutils literal"><span class="pre">xid</span></tt>.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">DELETE</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Response Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+</ul>
+</div>
+<div class="section" id="v1-connection-xid-enable-put-enable-connection">
+<h3><a class="toc-backref" href="#id18">/v1/connection/[xid]/enable - [PUT] - Enable Connection</a><a class="headerlink" href="#v1-connection-xid-enable-put-enable-connection" title="Permalink to this headline">¶</a></h3>
+<p>Enable a connection with id <tt class="docutils literal"><span class="pre">xid</span></tt>.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">PUT</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Response Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+</ul>
+</div>
+<div class="section" id="v1-connection-xid-disable-put-disable-connection">
+<h3><a class="toc-backref" href="#id19">/v1/connection/[xid]/disable - [PUT] - Disable Connection</a><a class="headerlink" href="#v1-connection-xid-disable-put-disable-connection" title="Permalink to this headline">¶</a></h3>
+<p>Disable a connection with id <tt class="docutils literal"><span class="pre">xid</span></tt>.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">PUT</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Response Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+</ul>
+</div>
+<div class="section" id="v1-job-jid-get-get-job">
+<h3><a class="toc-backref" href="#id20">/v1/job/[jid] - [GET] - Get Job</a><a class="headerlink" href="#v1-job-jid-get-get-job" title="Permalink to this headline">¶</a></h3>
+<p>Retrieve all the metadata of a given job, such as its values for different fields of connector form and sqoop framework form.</p>
+<p>Provide the id of the job in the url [jid] part. If you provide <tt class="docutils literal"><span class="pre">all</span></tt> in the [jid] part in the url, you will get the metadata of all connections.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">GET</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">resources-connector</span></tt></td>
+<td>All resources for the given connector</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">resources-framework</span></tt></td>
+<td>All resources related with Sqoop framework</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">all</span></tt></td>
+<td>All metadata about the given job, such as id, name and all form input values</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;resources-connector&quot;:{
+    &quot;1&quot;:{
+      &quot;ignored.label&quot;:&quot;Ignored&quot;,
+      &quot;table.partitionColumn.help&quot;:&quot;A specific column for data partition&quot;,
+      &quot;table.label&quot;:&quot;Database configuration&quot;,
+      &quot;table.boundaryQuery.label&quot;:&quot;Boundary query&quot;,
+      &quot;ignored.help&quot;:&quot;This is completely ignored&quot;,
+      &quot;ignored.ignored.label&quot;:&quot;Ignored&quot;,
+      &quot;connection.jdbcProperties.help&quot;:&quot;Enter any JDBC properties that should be supplied during the creation of connection.&quot;,
+      &quot;table.tableName.help&quot;:&quot;Table name to process data in the remote database&quot;,
+      &quot;connection.jdbcDriver.label&quot;:&quot;JDBC Driver Class&quot;,
+      &quot;connection.username.help&quot;:&quot;Enter the username to be used for connecting to the database.&quot;,
+      &quot;table.help&quot;:&quot;You must supply the information requested in order to create a job object.&quot;,
+      &quot;table.partitionColumn.label&quot;:&quot;Partition column name&quot;,
+      &quot;ignored.ignored.help&quot;:&quot;This is completely ignored&quot;,
+      &quot;table.partitionColumnNull.label&quot;:&quot;Nulls in partition column&quot;,
+      &quot;table.warehouse.label&quot;:&quot;Data warehouse&quot;,
+      &quot;table.boundaryQuery.help&quot;:&quot;The boundary query for data partition&quot;,
+      &quot;connection.username.label&quot;:&quot;Username&quot;,
+      &quot;connection.jdbcDriver.help&quot;:&quot;Enter the fully qualified class name of the JDBC driver that will be used for establishing this connection.&quot;,
+      &quot;connection.label&quot;:&quot;Connection configuration&quot;,
+      &quot;table.columns.label&quot;:&quot;Table column names&quot;,
+      &quot;table.dataDirectory.label&quot;:&quot;Data directory&quot;,
+      &quot;table.partitionColumnNull.help&quot;:&quot;Whether there are null values in partition column&quot;,
+      &quot;connection.password.label&quot;:&quot;Password&quot;,
+      &quot;table.warehouse.help&quot;:&quot;The root directory for data&quot;,
+      &quot;table.sql.label&quot;:&quot;Table SQL statement&quot;,
+      &quot;table.sql.help&quot;:&quot;SQL statement to process data in the remote database&quot;,
+      &quot;table.schemaName.help&quot;:&quot;Schema name to process data in the remote database&quot;,
+      &quot;connection.jdbcProperties.label&quot;:&quot;JDBC Connection Properties&quot;,
+      &quot;table.columns.help&quot;:&quot;Specific columns of a table name or a table SQL&quot;,
+      &quot;connection.connectionString.help&quot;:&quot;Enter the value of JDBC connection string to be used by this connector for creating connections.&quot;,
+      &quot;table.dataDirectory.help&quot;:&quot;The sub-directory under warehouse for data&quot;,
+      &quot;table.schemaName.label&quot;:&quot;Schema name&quot;,
+      &quot;connection.connectionString.label&quot;:&quot;JDBC Connection String&quot;,
+      &quot;connection.help&quot;:&quot;You must supply the information requested in order to create a connection object.&quot;,
+      &quot;connection.password.help&quot;:&quot;Enter the password to be used for connecting to the database.&quot;,
+      &quot;table.tableName.label&quot;:&quot;Table name&quot;
+    }
+  },
+  &quot;resources-framework&quot;:{
+    &quot;output.label&quot;:&quot;Output configuration&quot;,
+    &quot;security.maxConnections.help&quot;:&quot;Maximal number of connections that this connection object can use at one point in time&quot;,
+    &quot;output.storageType.label&quot;:&quot;Storage type&quot;,
+    &quot;output.ignored.help&quot;:&quot;This value is ignored&quot;,
+    &quot;input.label&quot;:&quot;Input configuration&quot;,
+    &quot;security.help&quot;:&quot;You must supply the information requested in order to create a job object.&quot;,
+    &quot;output.storageType.help&quot;:&quot;Target on Hadoop ecosystem where to store data&quot;,
+    &quot;input.inputDirectory.help&quot;:&quot;Directory that should be exported&quot;,
+    &quot;output.outputFormat.label&quot;:&quot;Output format&quot;,
+    &quot;output.ignored.label&quot;:&quot;Ignored&quot;,
+    &quot;output.outputFormat.help&quot;:&quot;Format in which data should be serialized&quot;,
+    &quot;output.help&quot;:&quot;You must supply the information requested in order to get information where you want to store your data.&quot;,
+    &quot;throttling.help&quot;:&quot;Set throttling boundaries to not overload your systems&quot;,
+    &quot;input.inputDirectory.label&quot;:&quot;Input directory&quot;,
+    &quot;throttling.loaders.label&quot;:&quot;Loaders&quot;,
+    &quot;input.help&quot;:&quot;Specifies information required to get data from Hadoop ecosystem&quot;,
+    &quot;throttling.extractors.label&quot;:&quot;Extractors&quot;,
+    &quot;throttling.extractors.help&quot;:&quot;Number of extractors that Sqoop will use&quot;,
+    &quot;security.label&quot;:&quot;Security related configuration options&quot;,
+    &quot;throttling.label&quot;:&quot;Throttling resources&quot;,
+    &quot;throttling.loaders.help&quot;:&quot;Number of loaders that Sqoop will use&quot;,
+    &quot;output.outputDirectory.help&quot;:&quot;Output directory for final data&quot;,
+    &quot;security.maxConnections.label&quot;:&quot;Max connections&quot;,
+    &quot;output.outputDirectory.label&quot;:&quot;Output directory&quot;
+  },
+  &quot;all&quot;:[
+    {
+      &quot;connection-id&quot;:1,
+      &quot;id&quot;:1,
+      &quot;enabled&quot;:true,
+      &quot;updated&quot;:1375913231253,
+      &quot;created&quot;:1375913231253,
+      &quot;name&quot;:&quot;First job&quot;,
+      &quot;connector&quot;:[
+        {
+          &quot;id&quot;:2,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:6,
+              &quot;name&quot;:&quot;table.schemaName&quot;,
+              &quot;value&quot;:&quot;test&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:7,
+              &quot;name&quot;:&quot;table.tableName&quot;,
+              &quot;value&quot;:&quot;example&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:8,
+              &quot;name&quot;:&quot;table.sql&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:2000,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:9,
+              &quot;name&quot;:&quot;table.columns&quot;,
+              &quot;value&quot;:&quot;id%2Cdata&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:10,
+              &quot;name&quot;:&quot;table.partitionColumn&quot;,
+              &quot;value&quot;:&quot;id&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:11,
+              &quot;name&quot;:&quot;table.partitionColumnNull&quot;,
+              &quot;value&quot;:&quot;true&quot;,
+              &quot;type&quot;:&quot;BOOLEAN&quot;,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:12,
+              &quot;name&quot;:&quot;table.boundaryQuery&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;table&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        }
+      ],
+      &quot;connector-id&quot;:1,
+      &quot;type&quot;:&quot;IMPORT&quot;,
+      &quot;framework&quot;:[
+        {
+          &quot;id&quot;:5,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:18,
+              &quot;values&quot;:&quot;HDFS&quot;,
+              &quot;name&quot;:&quot;output.storageType&quot;,
+              &quot;value&quot;:&quot;HDFS&quot;,
+              &quot;type&quot;:&quot;ENUM&quot;,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:19,
+              &quot;values&quot;:&quot;TEXT_FILE,SEQUENCE_FILE&quot;,
+              &quot;name&quot;:&quot;output.outputFormat&quot;,
+              &quot;value&quot;:&quot;TEXT_FILE&quot;,
+              &quot;type&quot;:&quot;ENUM&quot;,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:20,
+              &quot;name&quot;:&quot;output.outputDirectory&quot;,
+              &quot;value&quot;:&quot;%2Ftmp%2Foutput&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:255,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;output&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        },
+        {
+          &quot;id&quot;:6,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:21,
+              &quot;name&quot;:&quot;throttling.extractors&quot;,
+              &quot;type&quot;:&quot;INTEGER&quot;,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:22,
+              &quot;name&quot;:&quot;throttling.loaders&quot;,
+              &quot;type&quot;:&quot;INTEGER&quot;,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;throttling&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        }
+      ]
+    }
+  ]
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-job-post-create-job">
+<h3><a class="toc-backref" href="#id21">/v1/job - [POST] - Create Job</a><a class="headerlink" href="#v1-job-post-create-job" title="Permalink to this headline">¶</a></h3>
+<p>Create a new job object. Try your best to provide values for as many as inputs of
+job forms from both connectors and framework.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">POST</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Fields of Request:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">all</span></tt></td>
+<td>Request array, in which each element is an independent request</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">connection-id</span></tt></td>
+<td>The id of the connection used for this job</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">id</span></tt></td>
+<td>The id of the job. Useless here, because we don&#8217;t know the id before creation</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">type</span></tt></td>
+<td>The type of this job (&#8220;IMPORT&#8221;/&#8221;EXPORT&#8221;)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">enabled</span></tt></td>
+<td>Whether to enable this connection (true/false)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">updated</span></tt></td>
+<td>The last updated time of this connection</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">created</span></tt></td>
+<td>The creation time of this connection</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">name</span></tt></td>
+<td>The name of this connection</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">connector</span></tt></td>
+<td>Filled inputs for connector forms for this connection</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">connector-id</span></tt></td>
+<td>The id of the connector used for this connection</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">framework</span></tt></td>
+<td>Filled inputs for framework forms for this connection</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Request Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;all&quot;:[
+    {
+      &quot;connection-id&quot;:1,
+      &quot;id&quot;:-1,
+      &quot;enabled&quot;:true,
+      &quot;updated&quot;:1375920083970,
+      &quot;created&quot;:1375920083970,
+      &quot;name&quot;:&quot;First job&quot;,
+      &quot;connector&quot;:[
+        {
+          &quot;id&quot;:2,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:6,
+              &quot;name&quot;:&quot;table.schemaName&quot;,
+              &quot;value&quot;:&quot;test&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:7,
+              &quot;name&quot;:&quot;table.tableName&quot;,
+              &quot;value&quot;:&quot;example&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:8,
+              &quot;name&quot;:&quot;table.sql&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:2000,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:9,
+              &quot;name&quot;:&quot;table.columns&quot;,
+              &quot;value&quot;:&quot;id%2Cdata&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:10,
+              &quot;name&quot;:&quot;table.partitionColumn&quot;,
+              &quot;value&quot;:&quot;id&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:11,
+              &quot;name&quot;:&quot;table.partitionColumnNull&quot;,
+              &quot;value&quot;:&quot;true&quot;,
+              &quot;type&quot;:&quot;BOOLEAN&quot;,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:12,
+              &quot;name&quot;:&quot;table.boundaryQuery&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:50,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;table&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        }
+      ],
+      &quot;connector-id&quot;:1,
+      &quot;type&quot;:&quot;IMPORT&quot;,
+      &quot;framework&quot;:[
+        {
+          &quot;id&quot;:5,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:18,
+              &quot;values&quot;:&quot;HDFS&quot;,
+              &quot;name&quot;:&quot;output.storageType&quot;,
+              &quot;value&quot;:&quot;HDFS&quot;,
+              &quot;type&quot;:&quot;ENUM&quot;,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:19,
+              &quot;values&quot;:&quot;TEXT_FILE,SEQUENCE_FILE&quot;,
+              &quot;name&quot;:&quot;output.outputFormat&quot;,
+              &quot;value&quot;:&quot;TEXT_FILE&quot;,
+              &quot;type&quot;:&quot;ENUM&quot;,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:20,
+              &quot;name&quot;:&quot;output.outputDirectory&quot;,
+              &quot;value&quot;:&quot;%2Ftmp%2Foutput&quot;,
+              &quot;type&quot;:&quot;STRING&quot;,
+              &quot;size&quot;:255,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;output&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        },
+        {
+          &quot;id&quot;:6,
+          &quot;inputs&quot;:[
+            {
+              &quot;id&quot;:21,
+              &quot;name&quot;:&quot;throttling.extractors&quot;,
+              &quot;type&quot;:&quot;INTEGER&quot;,
+              &quot;sensitive&quot;:false
+            },
+            {
+              &quot;id&quot;:22,
+              &quot;name&quot;:&quot;throttling.loaders&quot;,
+              &quot;type&quot;:&quot;INTEGER&quot;,
+              &quot;sensitive&quot;:false
+            }
+          ],
+          &quot;name&quot;:&quot;throttling&quot;,
+          &quot;type&quot;:&quot;CONNECTION&quot;
+        }
+      ]
+    }
+  ]
+}
+</pre></div>
+</div>
+<ul class="simple">
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">id</span></tt></td>
+<td>The id assigned for this new created job</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">connector</span></tt></td>
+<td>The validation status for the inputs of connector forms, provided by the request</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">framework</span></tt></td>
+<td>The validation status for the inputs of framework forms, provided by the request</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;id&quot;:1,
+  &quot;connector&quot;:{
+    &quot;status&quot;:&quot;FINE&quot;,
+    &quot;messages&quot;:{
+
+    }
+  },
+  &quot;framework&quot;:{
+    &quot;status&quot;:&quot;FINE&quot;,
+    &quot;messages&quot;:{
+
+    }
+  }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-job-jid-put-update-job">
+<h3><a class="toc-backref" href="#id22">/v1/job/[jid] - [PUT] - Update Job</a><a class="headerlink" href="#v1-job-jid-put-update-job" title="Permalink to this headline">¶</a></h3>
+<p>Update an existing job object with id [jid]. To make the procedure of filling inputs easier, the general practice
+is get the existing job object first and then change some of the inputs.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">PUT</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Fields of Request:</li>
+</ul>
+<p>The same as Create Job.</p>
+<ul class="simple">
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">connector</span></tt></td>
+<td>The validation status for the inputs of connector forms, provided by the request</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">framework</span></tt></td>
+<td>The validation status for the inputs of framework forms, provided by the request</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;connector&quot;:{
+    &quot;status&quot;:&quot;FINE&quot;,
+    &quot;messages&quot;:{
+
+    }
+  },
+  &quot;framework&quot;:{
+    &quot;status&quot;:&quot;FINE&quot;,
+    &quot;messages&quot;:{
+
+    }
+  }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-job-jid-delete-delete-job">
+<h3><a class="toc-backref" href="#id23">/v1/job/[jid] - [DELETE] - Delete Job</a><a class="headerlink" href="#v1-job-jid-delete-delete-job" title="Permalink to this headline">¶</a></h3>
+<p>Delete a job with id <tt class="docutils literal"><span class="pre">jid</span></tt>.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">DELETE</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Response Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+</ul>
+</div>
+<div class="section" id="v1-job-jid-enable-put-enable-job">
+<h3><a class="toc-backref" href="#id24">/v1/job/[jid]/enable - [PUT] - Enable Job</a><a class="headerlink" href="#v1-job-jid-enable-put-enable-job" title="Permalink to this headline">¶</a></h3>
+<p>Enable a job with id <tt class="docutils literal"><span class="pre">jid</span></tt>.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">PUT</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Response Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+</ul>
+</div>
+<div class="section" id="v1-job-jid-disable-put-disable-job">
+<h3><a class="toc-backref" href="#id25">/v1/job/[jid]/disable - [PUT] - Disable Job</a><a class="headerlink" href="#v1-job-jid-disable-put-disable-job" title="Permalink to this headline">¶</a></h3>
+<p>Disable a job with id <tt class="docutils literal"><span class="pre">jid</span></tt>.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">PUT</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Response Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+</ul>
+</div>
+<div class="section" id="v1-submission-history-jid-get-get-job-submission-history">
+<h3><a class="toc-backref" href="#id26">/v1/submission/history/[jid] - [GET] - Get Job Submission History</a><a class="headerlink" href="#v1-submission-history-jid-get-get-job-submission-history" title="Permalink to this headline">¶</a></h3>
+<p>Retrieve all job submission history of a given job, such as the status, counters and links for those submissions.</p>
+<p>Provide the id of the job in the url [jid] part. If you provide <tt class="docutils literal"><span class="pre">all</span></tt> in the [jid] part in the url, you will get all job submission history of all jobs.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">GET</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Fields of Response:</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">progress</span></tt></td>
+<td>The progress of the running Sqoop job</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">job</span></tt></td>
+<td>The id of the Sqoop job</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">creation-date</span></tt></td>
+<td>The submission timestamp</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">last-update-date</span></tt></td>
+<td>The timestamp of the last status update</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">status</span></tt></td>
+<td>The status of this job submission</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">external-id</span></tt></td>
+<td>The job id of Sqoop job running on Hadoop</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">external-link</span></tt></td>
+<td>The link to track the job status on Hadoop</td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>{
+  &quot;all&quot;:[
+    {
+      &quot;progress&quot;:-1.0,
+      &quot;last-update-date&quot;:1375913666476,
+      &quot;external-id&quot;:&quot;job_201307221513_0009&quot;,
+      &quot;status&quot;:&quot;SUCCEEDED&quot;,
+      &quot;job&quot;:1,
+      &quot;creation-date&quot;:1375913630576,
+      &quot;external-link&quot;:&quot;http:\/\/localhost:50030\/jobdetails.jsp?jobid=job_201307221513_0009&quot;,
+      &quot;counters&quot;:{
+        &quot;org.apache.hadoop.mapreduce.JobCounter&quot;:{
+          &quot;SLOTS_MILLIS_MAPS&quot;:59135,
+          &quot;FALLOW_SLOTS_MILLIS_REDUCES&quot;:0,
+          &quot;FALLOW_SLOTS_MILLIS_MAPS&quot;:0,
+          &quot;TOTAL_LAUNCHED_MAPS&quot;:2,
+          &quot;SLOTS_MILLIS_REDUCES&quot;:0
+        },
+        &quot;org.apache.hadoop.mapreduce.TaskCounter&quot;:{
+          &quot;MAP_INPUT_RECORDS&quot;:0,
+          &quot;PHYSICAL_MEMORY_BYTES&quot;:231583744,
+          &quot;SPILLED_RECORDS&quot;:0,
+          &quot;COMMITTED_HEAP_BYTES&quot;:112721920,
+          &quot;CPU_MILLISECONDS&quot;:20940,
+          &quot;VIRTUAL_MEMORY_BYTES&quot;:1955266560,
+          &quot;SPLIT_RAW_BYTES&quot;:223,
+          &quot;MAP_OUTPUT_RECORDS&quot;:5
+        },
+        &quot;org.apache.hadoop.mapreduce.FileSystemCounter&quot;:{
+          &quot;FILE_WRITE_OPS&quot;:0,
+          &quot;FILE_READ_OPS&quot;:0,
+          &quot;FILE_LARGE_READ_OPS&quot;:0,
+          &quot;FILE_BYTES_READ&quot;:0,
+          &quot;HDFS_BYTES_READ&quot;:223,
+          &quot;FILE_BYTES_WRITTEN&quot;:386286,
+          &quot;HDFS_LARGE_READ_OPS&quot;:0,
+          &quot;HDFS_WRITE_OPS&quot;:2,
+          &quot;HDFS_READ_OPS&quot;:3,
+          &quot;HDFS_BYTES_WRITTEN&quot;:72
+        },
+        &quot;org.apache.sqoop.submission.counter.SqoopCounters&quot;:{
+          &quot;ROWS_READ&quot;:5
+        }
+      }
+    },
+    {
+      &quot;progress&quot;:-1.0,
+      &quot;last-update-date&quot;:1375913554412,
+      &quot;external-id&quot;:&quot;job_201307221513_0008&quot;,
+      &quot;status&quot;:&quot;SUCCEEDED&quot;,
+      &quot;job&quot;:1,
+      &quot;creation-date&quot;:1375913501078,
+      &quot;external-link&quot;:&quot;http:\/\/localhost:50030\/jobdetails.jsp?jobid=job_201307221513_0008&quot;,
+      &quot;counters&quot;:{
+        &quot;org.apache.hadoop.mapreduce.JobCounter&quot;:{
+          &quot;SLOTS_MILLIS_MAPS&quot;:54905,
+          &quot;FALLOW_SLOTS_MILLIS_REDUCES&quot;:0,
+          &quot;FALLOW_SLOTS_MILLIS_MAPS&quot;:0,
+          &quot;TOTAL_LAUNCHED_MAPS&quot;:2,
+          &quot;SLOTS_MILLIS_REDUCES&quot;:0
+        },
+        &quot;org.apache.hadoop.mapreduce.TaskCounter&quot;:{
+          &quot;MAP_INPUT_RECORDS&quot;:0,
+          &quot;PHYSICAL_MEMORY_BYTES&quot;:218865664,
+          &quot;SPILLED_RECORDS&quot;:0,
+          &quot;COMMITTED_HEAP_BYTES&quot;:112918528,
+          &quot;CPU_MILLISECONDS&quot;:2550,
+          &quot;VIRTUAL_MEMORY_BYTES&quot;:1955266560,
+          &quot;SPLIT_RAW_BYTES&quot;:223,
+          &quot;MAP_OUTPUT_RECORDS&quot;:5
+        },
+        &quot;org.apache.hadoop.mapreduce.FileSystemCounter&quot;:{
+          &quot;FILE_WRITE_OPS&quot;:0,
+          &quot;FILE_READ_OPS&quot;:0,
+          &quot;FILE_LARGE_READ_OPS&quot;:0,
+          &quot;FILE_BYTES_READ&quot;:0,
+          &quot;HDFS_BYTES_READ&quot;:223,
+          &quot;FILE_BYTES_WRITTEN&quot;:387362,
+          &quot;HDFS_LARGE_READ_OPS&quot;:0,
+          &quot;HDFS_WRITE_OPS&quot;:2,
+          &quot;HDFS_READ_OPS&quot;:2,
+          &quot;HDFS_BYTES_WRITTEN&quot;:72
+        },
+        &quot;org.apache.sqoop.submission.counter.SqoopCounters&quot;:{
+          &quot;ROWS_READ&quot;:5
+        }
+      }
+    }
+  ]
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="v1-submission-action-jid-get-get-the-latest-submission-of-a-given-job">
+<h3><a class="toc-backref" href="#id27">/v1/submission/action/[jid] - [GET]- Get The Latest Submission Of A Given Job</a><a class="headerlink" href="#v1-submission-action-jid-get-get-the-latest-submission-of-a-given-job" title="Permalink to this headline">¶</a></h3>
+<p>Retrieve the latest submission of a given job, such as the status, counters and links for those submissions.</p>
+<p>This function is similar to <tt class="docutils literal"><span class="pre">/v1/submission/history/[jid]</span></tt> except that it always return one submission object.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">GET</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Fields of Response:</li>
+</ul>
+<p>The same as <tt class="docutils literal"><span class="pre">/v1/submission/history/[jid]</span></tt></p>
+<ul class="simple">
+<li>Response Example:</li>
+</ul>
+<p>The same as <tt class="docutils literal"><span class="pre">/v1/submission/history/[jid]</span></tt></p>
+</div>
+<div class="section" id="v1-submission-action-jid-post-submit-job">
+<h3><a class="toc-backref" href="#id28">/v1/submission/action/[jid] - [POST]- Submit Job</a><a class="headerlink" href="#v1-submission-action-jid-post-submit-job" title="Permalink to this headline">¶</a></h3>
+<p>Submit a job with id <tt class="docutils literal"><span class="pre">[jid]</span></tt> to make it run.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">POST</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Response Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+</ul>
+</div>
+<div class="section" id="v1-submission-action-jid-delete-stop-job">
+<h3><a class="toc-backref" href="#id29">/v1/submission/action/[jid] - [DELETE]- Stop Job</a><a class="headerlink" href="#v1-submission-action-jid-delete-stop-job" title="Permalink to this headline">¶</a></h3>
+<p>Stop a job with id <tt class="docutils literal"><span class="pre">[jid]</span></tt>.</p>
+<ul class="simple">
+<li>Method: <tt class="docutils literal"><span class="pre">DELETE</span></tt></li>
+<li>Format: <tt class="docutils literal"><span class="pre">JSON</span></tt></li>
+<li>Request Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+<li>Response Content: <tt class="docutils literal"><span class="pre">None</span></tt></li>
+</ul>
+</div>
+</div>
+</div>
+
+
+      </div>
+      <div class="bottomnav">
+      
+        <p>
+        <a class="uplink" href="index.html">Contents</a>
+        </p>
+
+      </div>
+
+    <div class="footer">
+        &copy; Copyright 2009-2013 The Apache Software Foundation.
+    </div>
+  </body>
+</html>

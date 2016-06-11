@@ -1,0 +1,314 @@
+From 8fe46c60a15d0f304553d26e59f95a612b18af0f Mon Sep 17 00:00:00 2001
+From: Hari Shreedharan <hshreedharan@apache.org>
+Date: Thu, 16 Jan 2014 11:53:31 -0800
+Subject: [PATCH 16/30] SQOOP-1266. Introduce Sqoop2 top-level commands
+
+(Jarek Jarcec Cecho via Hari Shreedharan)
+---
+ dist/src/main/bin/sqoop2-server            |   36 ++++++++++++++++++++++++++++
+ dist/src/main/bin/sqoop2-shell             |   36 ++++++++++++++++++++++++++++
+ dist/src/main/bin/sqoop2-tool              |   36 ++++++++++++++++++++++++++++
+ docs/src/site/sphinx/CommandLineClient.rst |    6 ++--
+ docs/src/site/sphinx/Installation.rst      |   19 +++++++++++----
+ docs/src/site/sphinx/Sqoop5MinutesDemo.rst |    2 +-
+ docs/src/site/sphinx/Tools.rst             |   10 +++++--
+ docs/src/site/sphinx/Upgrade.rst           |    8 +++---
+ 8 files changed, 137 insertions(+), 16 deletions(-)
+ create mode 100755 dist/src/main/bin/sqoop2-server
+ create mode 100755 dist/src/main/bin/sqoop2-shell
+ create mode 100755 dist/src/main/bin/sqoop2-tool
+
+diff --git a/dist/src/main/bin/sqoop2-server b/dist/src/main/bin/sqoop2-server
+new file mode 100755
+index 0000000..6c8ec66
+--- /dev/null
++++ b/dist/src/main/bin/sqoop2-server
+@@ -0,0 +1,36 @@
++#!/usr/bin/env bash
++#
++# Licensed to the Apache Software Foundation (ASF) under one or more
++# contributor license agreements.  See the NOTICE file distributed with
++# this work for additional information regarding copyright ownership.
++# The ASF licenses this file to You under the Apache License, Version 2.0
++# (the "License"); you may not use this file except in compliance with
++# the License.  You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++
++# resolve links - $0 may be a softlink
++PRG="${0}"
++
++while [ -h "${PRG}" ]; do
++  ls=`ls -ld "${PRG}"`
++  link=`expr "$ls" : '.*-> \(.*\)$'`
++  if expr "$link" : '/.*' > /dev/null; then
++    PRG="$link"
++  else
++    PRG=`dirname "${PRG}"`/"$link"
++  fi
++done
++
++BASEDIR=`dirname ${PRG}`
++BASEDIR=`cd ${BASEDIR}/..;pwd`
++
++# Run the server command
++exec $BASEDIR/bin/sqoop.sh server $@
+diff --git a/dist/src/main/bin/sqoop2-shell b/dist/src/main/bin/sqoop2-shell
+new file mode 100755
+index 0000000..b61acb3
+--- /dev/null
++++ b/dist/src/main/bin/sqoop2-shell
+@@ -0,0 +1,36 @@
++#!/usr/bin/env bash
++#
++# Licensed to the Apache Software Foundation (ASF) under one or more
++# contributor license agreements.  See the NOTICE file distributed with
++# this work for additional information regarding copyright ownership.
++# The ASF licenses this file to You under the Apache License, Version 2.0
++# (the "License"); you may not use this file except in compliance with
++# the License.  You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++
++# resolve links - $0 may be a softlink
++PRG="${0}"
++
++while [ -h "${PRG}" ]; do
++  ls=`ls -ld "${PRG}"`
++  link=`expr "$ls" : '.*-> \(.*\)$'`
++  if expr "$link" : '/.*' > /dev/null; then
++    PRG="$link"
++  else
++    PRG=`dirname "${PRG}"`/"$link"
++  fi
++done
++
++BASEDIR=`dirname ${PRG}`
++BASEDIR=`cd ${BASEDIR}/..;pwd`
++
++# Run the shell
++exec $BASEDIR/bin/sqoop.sh client $@
+diff --git a/dist/src/main/bin/sqoop2-tool b/dist/src/main/bin/sqoop2-tool
+new file mode 100755
+index 0000000..8e5eb9f
+--- /dev/null
++++ b/dist/src/main/bin/sqoop2-tool
+@@ -0,0 +1,36 @@
++#!/usr/bin/env bash
++#
++# Licensed to the Apache Software Foundation (ASF) under one or more
++# contributor license agreements.  See the NOTICE file distributed with
++# this work for additional information regarding copyright ownership.
++# The ASF licenses this file to You under the Apache License, Version 2.0
++# (the "License"); you may not use this file except in compliance with
++# the License.  You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++
++# resolve links - $0 may be a softlink
++PRG="${0}"
++
++while [ -h "${PRG}" ]; do
++  ls=`ls -ld "${PRG}"`
++  link=`expr "$ls" : '.*-> \(.*\)$'`
++  if expr "$link" : '/.*' > /dev/null; then
++    PRG="$link"
++  else
++    PRG=`dirname "${PRG}"`/"$link"
++  fi
++done
++
++BASEDIR=`dirname ${PRG}`
++BASEDIR=`cd ${BASEDIR}/..;pwd`
++
++# Run the tool
++exec $BASEDIR/bin/sqoop.sh tool $@
+diff --git a/docs/src/site/sphinx/CommandLineClient.rst b/docs/src/site/sphinx/CommandLineClient.rst
+index 22d6d47..fb7f780 100644
+--- a/docs/src/site/sphinx/CommandLineClient.rst
++++ b/docs/src/site/sphinx/CommandLineClient.rst
+@@ -20,13 +20,13 @@ Command Line Client
+ 
+ Sqoop 2 provides command line client that is capable of communicating with Sqoop 2 server using REST interface. Client is able to run in two modes - interactive and batch mode. Commands ``create``, ``update`` and ``clone`` are not currently supported in batch mode. Interactive mode supports all available commands.
+ 
+-You can start Sqoop 2 client in interactive mode using provided ``sqoop.sh`` shell script by passing argument ``client``: ::
++You can start Sqoop 2 client in interactive mode using command ``sqoop2-shell``::
+ 
+-  sqoop.sh client
++  sqoop2-shell
+ 
+ Batch mode can be started by adding additional argument representing path to your Sqoop client script: ::
+ 
+-  sqoop.sh client /path/to/your/script.sqoop
++  sqoop2-shell /path/to/your/script.sqoop
+ 
+ Sqoop client script is expected to contain valid Sqoop client commands, empty lines and lines starting with ``#`` that are denoting comment lines. Comments and empty lines are ignored, all other lines are interpreted. Example script: ::
+ 
+diff --git a/docs/src/site/sphinx/Installation.rst b/docs/src/site/sphinx/Installation.rst
+index 97af412..c2de6c7 100644
+--- a/docs/src/site/sphinx/Installation.rst
++++ b/docs/src/site/sphinx/Installation.rst
+@@ -42,12 +42,21 @@ Sqoop server supports multiple Hadoop versions. However as Hadoop major versions
+ Installing Dependencies
+ -----------------------
+ 
+-Hadoop libraries must be available on node where you are planning to run Sqoop server with proper configuration for major services - ``NameNode`` and either ``JobTracker`` or ``ResourceManager`` depending whether you are running Hadoop 1 or 2. There is no need to run any Hadoop service on the same node as Sqoop server, just the libraries and configuration must be available. 
++Hadoop libraries must be available on node where you are planning to run Sqoop server with proper configuration for major services - ``NameNode`` and either ``JobTracker`` or ``ResourceManager`` depending whether you are running Hadoop 1 or 2. There is no need to run any Hadoop service on the same node as Sqoop server, just the libraries and configuration files must be available.
+ 
+ Path to Hadoop libraries is stored in file ``catalina.properties`` inside directory ``server/conf``. You need to change property called ``common.loader`` to contain all directories with your Hadoop libraries. The default expected locations are ``/usr/lib/hadoop`` and ``/usr/lib/hadoop/lib/``. Please check out the comments in the file for further description how to configure different locations.
+ 
+ Lastly you might need to install JDBC drivers that are not bundled with Sqoop because of incompatible licenses. You can add any arbitrary Java jar file to Sqoop server by copying it into ``lib/`` directory. You can create this directory if it do not exists already.
+ 
++Configuring PATH
++----------------
++
++All user and administrator facing shell commands are stored in ``bin/`` directory. It's recommended to add this directory to your ``$PATH`` for their easier execution, for example::
++
++  PATH=$PATH:`pwd`/bin/
++
++Further documentation pages will assume that you have the binaries on your ``$PATH``. You will need to call them specifying full path if you decide to skip this step.
++
+ Configuring Server
+ ------------------
+ 
+@@ -60,7 +69,7 @@ Second configuration file ``sqoop.properties`` contains remaining configuration
+ 
+ You can verify the Sqoop server configuration using `Verify Tool <Tools.html#verify>`__, for example::
+ 
+-  ./bin/sqoop.sh tool verify
++  sqoop2-tool verify
+ 
+ Upon running the ``verify`` tool, you should see messages similar to the following::
+ 
+@@ -74,11 +83,11 @@ Server Life Cycle
+ 
+ After installation and configuration you can start Sqoop server with following command: ::
+ 
+-  ./bin/sqoop.sh server start
++  sqoop2-server start
+ 
+ Similarly you can stop server using following command: ::
+ 
+-  ./bin/sqoop.sh server stop
++  sqoop2-server stop
+ 
+ By default Sqoop server daemons use ports 12000 and 12001. You can set ``SQOOP_HTTP_PORT`` and ``SQOOP_ADMIN_PORT`` in configuration file ``server/bin/setenv.sh`` to use different ports.
+ 
+@@ -87,7 +96,7 @@ Client installation
+ 
+ Client do not need extra installation and configuration steps. Just copy Sqoop distribution artifact on target machine and unzip it in desired location. You can start client with following command: ::
+ 
+-  bin/sqoop.sh client
++  sqoop2-shell
+ 
+ You can find more documentation to Sqoop client in `Command Line Client <CommandLineClient.html>`_ section.
+ 
+diff --git a/docs/src/site/sphinx/Sqoop5MinutesDemo.rst b/docs/src/site/sphinx/Sqoop5MinutesDemo.rst
+index 49e554b..920b051 100644
+--- a/docs/src/site/sphinx/Sqoop5MinutesDemo.rst
++++ b/docs/src/site/sphinx/Sqoop5MinutesDemo.rst
+@@ -27,7 +27,7 @@ Starting Client
+ 
+ Start client in interactive mode using following command: ::
+ 
+-  ./bin/sqoop.sh client
++  sqoop2-shell
+ 
+ Configure client to use your Sqoop server: ::
+ 
+diff --git a/docs/src/site/sphinx/Tools.rst b/docs/src/site/sphinx/Tools.rst
+index 1c7481f..ad72cd1 100644
+--- a/docs/src/site/sphinx/Tools.rst
++++ b/docs/src/site/sphinx/Tools.rst
+@@ -30,9 +30,9 @@ List of available tools:
+ * verify
+ * upgrade
+ 
+-To run the desired tool, execute binary ``sqoop.sh`` with the parameter ``tool`` followed by the desired tool name. For example to run ``verify`` tool::
++To run the desired tool, execute binary ``sqoop2-tool`` with desired tool name. For example to run ``verify`` tool::
+ 
+-  bin/sqoop.sh tool verify
++  sqoop2-tool verify
+ 
+ .. note:: Running tools while the Sqoop Server is also running is not recommended as it might lead to a data corruption and service disruption.
+ 
+@@ -43,7 +43,7 @@ The verify tool will verify Sqoop server configuration by starting all subsystem
+ 
+ To run the ``verify`` tool::
+ 
+-  bin/sqoop.sh tool verify
++  sqoop2-tool verify
+ 
+ If the verification process succeeds, you should see messages like::
+ 
+@@ -62,6 +62,10 @@ Upgrade
+ 
+ Upgrades all versionable components inside Sqoop2. This includes structural changes inside the repository and stored metadata. Running this tool is idempotent.
+ 
++To run the ``upgrade`` tool::
++
++  sqoop2-tool upgrade
++
+ Upon successful upgrade you should see following message::
+ 
+   Tool class org.apache.sqoop.tools.tool.UpgradeTool has finished correctly.
+diff --git a/docs/src/site/sphinx/Upgrade.rst b/docs/src/site/sphinx/Upgrade.rst
+index 45d27bd..aa3316c 100644
+--- a/docs/src/site/sphinx/Upgrade.rst
++++ b/docs/src/site/sphinx/Upgrade.rst
+@@ -34,11 +34,11 @@ Upgrading Server using upgrade tool
+ 
+ Preferred upgrade path is to explicitly run the `Upgrade Tool <Tools.html#upgrade>`_. First step is to however shutdown the server as having both the server and upgrade utility accessing the same repository might corrupt it::
+ 
+-  ./bin/sqoop.sh server stop
++  sqoop2-server stop
+ 
+ When the server has been successfully stopped, you can update the server bits and simply run the upgrade tool::
+ 
+-  ./bin/sqoop.sh tool upgrade
++  sqoop2-tool upgrade
+ 
+ You should see that the upgrade process has been successful::
+ 
+@@ -51,7 +51,7 @@ Upgrading Server on start-up
+ 
+ The capability of performing the upgrade has been built-in to the server, however is disabled by default to avoid any unintentional changes to the repository. You can start the upgrade procedure by stopping the server: ::
+ 
+-  ./bin/sqoop.sh server stop
++  sqoop2-server stop
+ 
+ Now you can update server bits. Before starting the server again you will need to enable the auto-upgrade feature that will perform all necessary during Sqoop Server boot up procedure. You need to set following properties in configuration file ``sqoop.properties``::
+ 
+@@ -61,7 +61,7 @@ Now you can update server bits. Before starting the server again you will need t
+ 
+ When all properties are set, start server using following command::
+ 
+-  ./bin/sqoop.sh server start
++  sqoop2-server start
+ 
+ All required actions will be performed automatically during the server bootstrap procedure. It's strongly advised to set all three properties to their original values once the server has been successfully started.
+ 
+-- 
+1.7.0.4
+

@@ -1,0 +1,424 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Sqoop 2 Connector Development &mdash; Apache Sqoop  documentation</title>
+    
+    <link rel="stylesheet" href="_static/haiku.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/print.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/theme_extras.js"></script>
+    <link rel="top" title="Apache Sqoop  documentation" href="index.html" /> 
+  </head>
+  <body>
+      <div class="header"><img class="rightlogo" src="_static/sqoop-logo.png" alt="Logo"/><h1 class="heading"><a href="index.html">
+          <span>Apache Sqoop  documentation</span></a></h1>
+        <h2 class="heading"><span>Sqoop 2 Connector Development</span></h2>
+      </div>
+      <div class="topnav">
+      
+        <p>
+        <a class="uplink" href="index.html">Contents</a>
+        </p>
+
+      </div>
+      <div class="content">
+        
+        
+  <div class="section" id="sqoop-2-connector-development">
+<h1><a class="toc-backref" href="#id2">Sqoop 2 Connector Development</a><a class="headerlink" href="#sqoop-2-connector-development" title="Permalink to this headline">¶</a></h1>
+<p>This document describes you how to implement connector for Sqoop 2
+using the code of built-in connector ( <tt class="docutils literal"><span class="pre">GenericJdbcConnector</span></tt> ) as example.</p>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#sqoop-2-connector-development" id="id2">Sqoop 2 Connector Development</a><ul>
+<li><a class="reference internal" href="#what-is-connector" id="id3">What is Connector?</a></li>
+<li><a class="reference internal" href="#connector-implementation" id="id4">Connector Implementation</a><ul>
+<li><a class="reference internal" href="#importer" id="id5">Importer</a><ul>
+<li><a class="reference internal" href="#extractor" id="id6">Extractor</a></li>
+<li><a class="reference internal" href="#partitioner" id="id7">Partitioner</a></li>
+<li><a class="reference internal" href="#initializer-and-destroyer" id="id8">Initializer and Destroyer</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#exporter" id="id9">Exporter</a><ul>
+<li><a class="reference internal" href="#loader" id="id10">Loader</a></li>
+<li><a class="reference internal" href="#id1" id="id11">Initializer and Destroyer</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#connector-configurations" id="id12">Connector Configurations</a><ul>
+<li><a class="reference internal" href="#connector-specifications" id="id13">Connector specifications</a></li>
+<li><a class="reference internal" href="#configurations" id="id14">Configurations</a></li>
+<li><a class="reference internal" href="#resourcebundle" id="id15">ResourceBundle</a></li>
+<li><a class="reference internal" href="#validator" id="id16">Validator</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#internal-of-sqoop2-mapreduce-job" id="id17">Internal of Sqoop2 MapReduce Job</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="what-is-connector">
+<h2><a class="toc-backref" href="#id3">What is Connector?</a><a class="headerlink" href="#what-is-connector" title="Permalink to this headline">¶</a></h2>
+<p>Connector provides interaction with external databases.
+Connector reads data from databases for import,
+and write data to databases for export.
+Interaction with Hadoop is taken cared by common modules of Sqoop 2 framework.</p>
+</div>
+<div class="section" id="connector-implementation">
+<h2><a class="toc-backref" href="#id4">Connector Implementation</a><a class="headerlink" href="#connector-implementation" title="Permalink to this headline">¶</a></h2>
+<p>The <tt class="docutils literal"><span class="pre">SqoopConnector</span></tt> class defines functionality
+which must be provided by Connectors.
+Each Connector must extends <tt class="docutils literal"><span class="pre">SqoopConnector</span></tt> and overrides methods shown below.</p>
+<div class="highlight-none"><div class="highlight"><pre>public abstract String getVersion();
+public abstract ResourceBundle getBundle(Locale locale);
+public abstract Class getConnectionConfigurationClass();
+public abstract Class getJobConfigurationClass(MJob.Type jobType);
+public abstract Importer getImporter();
+public abstract Exporter getExporter();
+public abstract Validator getValidator();
+public abstract MetadataUpgrader getMetadataUpgrader();
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">getImporter</span></tt> method returns <a class="reference internal" href="#importer">Importer</a> instance
+which is a placeholder for the modules needed for import.</p>
+<p>The <tt class="docutils literal"><span class="pre">getExporter</span></tt> method returns <a class="reference internal" href="#exporter">Exporter</a> instance
+which is a placeholder for the modules needed for export.</p>
+<p>Methods such as <tt class="docutils literal"><span class="pre">getBundle</span></tt> , <tt class="docutils literal"><span class="pre">getConnectionConfigurationClass</span></tt> ,
+<tt class="docutils literal"><span class="pre">getJobConfigurationClass</span></tt> and <tt class="docutils literal"><span class="pre">getValidator</span></tt>
+are concerned to <a class="reference internal" href="#connector-configurations">Connector configurations</a> .</p>
+<div class="section" id="importer">
+<h3><a class="toc-backref" href="#id5">Importer</a><a class="headerlink" href="#importer" title="Permalink to this headline">¶</a></h3>
+<p>Connector&#8217;s <tt class="docutils literal"><span class="pre">getImporter</span></tt> method returns <tt class="docutils literal"><span class="pre">Importer</span></tt> instance
+which is a placeholder for the modules needed for import
+such as <a class="reference internal" href="#partitioner">Partitioner</a> and <a class="reference internal" href="#extractor">Extractor</a> .
+Built-in <tt class="docutils literal"><span class="pre">GenericJdbcConnector</span></tt> defines <tt class="docutils literal"><span class="pre">Importer</span></tt> like this.</p>
+<div class="highlight-none"><div class="highlight"><pre>private static final Importer IMPORTER = new Importer(
+    GenericJdbcImportInitializer.class,
+    GenericJdbcImportPartitioner.class,
+    GenericJdbcImportExtractor.class,
+    GenericJdbcImportDestroyer.class);
+
+...
+
+@Override
+public Importer getImporter() {
+  return IMPORTER;
+}
+</pre></div>
+</div>
+<div class="section" id="extractor">
+<h4><a class="toc-backref" href="#id6">Extractor</a><a class="headerlink" href="#extractor" title="Permalink to this headline">¶</a></h4>
+<p>Extractor (E for ETL) extracts data from external database and
+writes it to Sqoop framework for import.</p>
+<p>Extractor must overrides <tt class="docutils literal"><span class="pre">extract</span></tt> method.</p>
+<div class="highlight-none"><div class="highlight"><pre>public abstract void extract(ExtractorContext context,
+                             ConnectionConfiguration connectionConfiguration,
+                             JobConfiguration jobConfiguration,
+                             Partition partition);
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">extract</span></tt> method extracts data from database in some way and
+writes it to <tt class="docutils literal"><span class="pre">DataWriter</span></tt> (provided by context) as <a class="reference external" href="https://cwiki.apache.org/confluence/display/SQOOP/Sqoop2+Intermediate+representation">Intermediate representation</a> .</p>
+<p>Extractor must iterates in the <tt class="docutils literal"><span class="pre">extract</span></tt> method until the data from database exhausts.</p>
+<div class="highlight-none"><div class="highlight"><pre>while (resultSet.next()) {
+  ...
+  context.getDataWriter().writeArrayRecord(array);
+  ...
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="partitioner">
+<h4><a class="toc-backref" href="#id7">Partitioner</a><a class="headerlink" href="#partitioner" title="Permalink to this headline">¶</a></h4>
+<p>Partitioner creates <tt class="docutils literal"><span class="pre">Partition</span></tt> instances based on configurations.
+The number of <tt class="docutils literal"><span class="pre">Partition</span></tt> instances is decided
+based on the value users specified as the numbers of ectractors
+in job configuration.</p>
+<p><tt class="docutils literal"><span class="pre">Partition</span></tt> instances are passed to <a class="reference internal" href="#extractor">Extractor</a> as the argument of <tt class="docutils literal"><span class="pre">extract</span></tt> method.
+<a class="reference internal" href="#extractor">Extractor</a> determines which portion of the data to extract by Partition.</p>
+<p>There is no actual convention for Partition classes
+other than being actually <tt class="docutils literal"><span class="pre">Writable</span></tt> and <tt class="docutils literal"><span class="pre">toString()</span></tt> -able.</p>
+<div class="highlight-none"><div class="highlight"><pre>public abstract class Partition {
+  public abstract void readFields(DataInput in) throws IOException;
+  public abstract void write(DataOutput out) throws IOException;
+  public abstract String toString();
+}
+</pre></div>
+</div>
+<p>Connectors can define the design of <tt class="docutils literal"><span class="pre">Partition</span></tt> on their own.</p>
+</div>
+<div class="section" id="initializer-and-destroyer">
+<h4><a class="toc-backref" href="#id8">Initializer and Destroyer</a><a class="headerlink" href="#initializer-and-destroyer" title="Permalink to this headline">¶</a></h4>
+<p>Initializer is instantiated before the submission of MapReduce job
+for doing preparation such as adding dependent jar files.</p>
+<p>Destroyer is instantiated after MapReduce job is finished for clean up.</p>
+</div>
+</div>
+<div class="section" id="exporter">
+<h3><a class="toc-backref" href="#id9">Exporter</a><a class="headerlink" href="#exporter" title="Permalink to this headline">¶</a></h3>
+<p>Connector&#8217;s <tt class="docutils literal"><span class="pre">getExporter</span></tt> method returns <tt class="docutils literal"><span class="pre">Exporter</span></tt> instance
+which is a placeholder for the modules needed for export
+such as <a class="reference internal" href="#loader">Loader</a> .
+Built-in <tt class="docutils literal"><span class="pre">GenericJdbcConnector</span></tt> defines <tt class="docutils literal"><span class="pre">Exporter</span></tt> like this.</p>
+<div class="highlight-none"><div class="highlight"><pre>private static final Exporter EXPORTER = new Exporter(
+    GenericJdbcExportInitializer.class,
+    GenericJdbcExportLoader.class,
+    GenericJdbcExportDestroyer.class);
+
+...
+
+@Override
+public Exporter getExporter() {
+  return EXPORTER;
+}
+</pre></div>
+</div>
+<div class="section" id="loader">
+<h4><a class="toc-backref" href="#id10">Loader</a><a class="headerlink" href="#loader" title="Permalink to this headline">¶</a></h4>
+<p>Loader (L for ETL) receives data from Sqoop framework and
+loads it to external database.</p>
+<p>Loader must overrides <tt class="docutils literal"><span class="pre">load</span></tt> method.</p>
+<div class="highlight-none"><div class="highlight"><pre>public abstract void load(LoaderContext context,
+                          ConnectionConfiguration connectionConfiguration,
+                          JobConfiguration jobConfiguration) throws Exception;
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">load</span></tt> method reads data from <tt class="docutils literal"><span class="pre">DataReader</span></tt> (provided by context)
+in <a class="reference external" href="https://cwiki.apache.org/confluence/display/SQOOP/Sqoop2+Intermediate+representation">Intermediate representation</a> and loads it to database in some way.</p>
+<p>Loader must iterates in the <tt class="docutils literal"><span class="pre">load</span></tt> method until the data from <tt class="docutils literal"><span class="pre">DataReader</span></tt> exhausts.</p>
+<div class="highlight-none"><div class="highlight"><pre>while ((array = context.getDataReader().readArrayRecord()) != null) {
+  ...
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="id1">
+<h4><a class="toc-backref" href="#id11">Initializer and Destroyer</a><a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h4>
+<p>Initializer is instantiated before the submission of MapReduce job
+for doing preparation such as adding dependent jar files.</p>
+<p>Destroyer is instantiated after MapReduce job is finished for clean up.</p>
+</div>
+</div>
+</div>
+<div class="section" id="connector-configurations">
+<h2><a class="toc-backref" href="#id12">Connector Configurations</a><a class="headerlink" href="#connector-configurations" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="connector-specifications">
+<h3><a class="toc-backref" href="#id13">Connector specifications</a><a class="headerlink" href="#connector-specifications" title="Permalink to this headline">¶</a></h3>
+<p>Framework of the Sqoop loads definitions of connectors
+from the file named <tt class="docutils literal"><span class="pre">sqoopconnector.properties</span></tt>
+which each connector implementation provides.</p>
+<div class="highlight-none"><div class="highlight"><pre># Generic JDBC Connector Properties
+org.apache.sqoop.connector.class = org.apache.sqoop.connector.jdbc.GenericJdbcConnector
+org.apache.sqoop.connector.name = generic-jdbc-connector
+</pre></div>
+</div>
+</div>
+<div class="section" id="configurations">
+<h3><a class="toc-backref" href="#id14">Configurations</a><a class="headerlink" href="#configurations" title="Permalink to this headline">¶</a></h3>
+<p>Implementation of <tt class="docutils literal"><span class="pre">SqoopConnector</span></tt> overrides methods such as
+<tt class="docutils literal"><span class="pre">getConnectionConfigurationClass</span></tt> and <tt class="docutils literal"><span class="pre">getJobConfigurationClass</span></tt>
+returning configuration class.</p>
+<div class="highlight-none"><div class="highlight"><pre>@Override
+public Class getConnectionConfigurationClass() {
+  return ConnectionConfiguration.class;
+}
+
+@Override
+public Class getJobConfigurationClass(MJob.Type jobType) {
+  switch (jobType) {
+    case IMPORT:
+      return ImportJobConfiguration.class;
+    case EXPORT:
+      return ExportJobConfiguration.class;
+    default:
+      return null;
+  }
+}
+</pre></div>
+</div>
+<p>Configurations are represented
+by models defined in <tt class="docutils literal"><span class="pre">org.apache.sqoop.model</span></tt> package.
+Annotations such as
+<tt class="docutils literal"><span class="pre">ConfigurationClass</span></tt> , <tt class="docutils literal"><span class="pre">FormClass</span></tt> , <tt class="docutils literal"><span class="pre">Form</span></tt> and <tt class="docutils literal"><span class="pre">Input</span></tt>
+are provided for defining configurations of each connectors
+using these models.</p>
+<p><tt class="docutils literal"><span class="pre">ConfigurationClass</span></tt> is place holder for <tt class="docutils literal"><span class="pre">FormClasses</span></tt> .</p>
+<div class="highlight-none"><div class="highlight"><pre>@ConfigurationClass
+public class ConnectionConfiguration {
+
+  @Form public ConnectionForm connection;
+
+  public ConnectionConfiguration() {
+    connection = new ConnectionForm();
+  }
+}
+</pre></div>
+</div>
+<p>Each <tt class="docutils literal"><span class="pre">FormClass</span></tt> defines names and types of configs.</p>
+<div class="highlight-none"><div class="highlight"><pre>@FormClass
+public class ConnectionForm {
+  @Input(size = 128) public String jdbcDriver;
+  @Input(size = 128) public String connectionString;
+  @Input(size = 40)  public String username;
+  @Input(size = 40, sensitive = true) public String password;
+  @Input public Map&lt;String, String&gt; jdbcProperties;
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="resourcebundle">
+<h3><a class="toc-backref" href="#id15">ResourceBundle</a><a class="headerlink" href="#resourcebundle" title="Permalink to this headline">¶</a></h3>
+<p>Resources used by client user interfaces are defined in properties file.</p>
+<div class="highlight-none"><div class="highlight"><pre># jdbc driver
+connection.jdbcDriver.label = JDBC Driver Class
+connection.jdbcDriver.help = Enter the fully qualified class name of the JDBC \
+                   driver that will be used for establishing this connection.
+
+# connect string
+connection.connectionString.label = JDBC Connection String
+connection.connectionString.help = Enter the value of JDBC connection string to be \
+                   used by this connector for creating connections.
+
+...
+</pre></div>
+</div>
+<p>Those resources are loaded by <tt class="docutils literal"><span class="pre">getBundle</span></tt> method of connector.</p>
+<div class="highlight-none"><div class="highlight"><pre>@Override
+public ResourceBundle getBundle(Locale locale) {
+  return ResourceBundle.getBundle(
+  GenericJdbcConnectorConstants.RESOURCE_BUNDLE_NAME, locale);
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="validator">
+<h3><a class="toc-backref" href="#id16">Validator</a><a class="headerlink" href="#validator" title="Permalink to this headline">¶</a></h3>
+<p>Validator validates configurations set by users.</p>
+</div>
+</div>
+<div class="section" id="internal-of-sqoop2-mapreduce-job">
+<h2><a class="toc-backref" href="#id17">Internal of Sqoop2 MapReduce Job</a><a class="headerlink" href="#internal-of-sqoop2-mapreduce-job" title="Permalink to this headline">¶</a></h2>
+<p>Sqoop 2 provides common MapReduce modules such as <tt class="docutils literal"><span class="pre">SqoopMapper</span></tt> and <tt class="docutils literal"><span class="pre">SqoopReducer</span></tt>
+for the both of import and export.</p>
+<ul class="simple">
+<li>For import, <tt class="docutils literal"><span class="pre">Extractor</span></tt> provided by connector extracts data from databases,
+and <tt class="docutils literal"><span class="pre">Loader</span></tt> provided by Sqoop2 loads data into Hadoop.</li>
+<li>For export, <tt class="docutils literal"><span class="pre">Extractor</span></tt> provided by Sqoop2 exracts data from Hadoop,
+and <tt class="docutils literal"><span class="pre">Loader</span></tt> provided by connector loads data into databases.</li>
+</ul>
+<p>The diagram below describes the initialization phase of IMPORT job.
+<tt class="docutils literal"><span class="pre">SqoopInputFormat</span></tt> create splits using <tt class="docutils literal"><span class="pre">Partitioner</span></tt> .</p>
+<div class="highlight-none"><div class="highlight"><pre>    ,----------------.          ,-----------.
+    |SqoopInputFormat|          |Partitioner|
+    `-------+--------&#39;          `-----+-----&#39;
+ getSplits  |                         |
+-----------&gt;|                         |
+            |      getPartitions      |
+            |------------------------&gt;|
+            |                         |         ,---------.
+            |                         |-------&gt; |Partition|
+            |                         |         `----+----&#39;
+            |&lt;- - - - - - - - - - - - |              |
+            |                         |              |          ,----------.
+            |--------------------------------------------------&gt;|SqoopSplit|
+            |                         |              |          `----+-----&#39;
+</pre></div>
+</div>
+<p>The diagram below describes the map phase of IMPORT job.
+<tt class="docutils literal"><span class="pre">SqoopMapper</span></tt> invokes extractor&#8217;s <tt class="docutils literal"><span class="pre">extract</span></tt> method.</p>
+<div class="highlight-none"><div class="highlight"><pre>    ,-----------.
+    |SqoopMapper|
+    `-----+-----&#39;
+   run    |
+---------&gt;|                                   ,-------------.
+          |----------------------------------&gt;|MapDataWriter|
+          |                                   `------+------&#39;
+          |                ,---------.               |
+          |--------------&gt; |Extractor|               |
+          |                `----+----&#39;               |
+          |      extract        |                    |
+          |--------------------&gt;|                    |
+          |                     |                    |
+         read from DB           |                    |
+&lt;-------------------------------|      write*        |
+          |                     |-------------------&gt;|
+          |                     |                    |           ,----.
+          |                     |                    |----------&gt;|Data|
+          |                     |                    |           `-+--&#39;
+          |                     |                    |
+          |                     |                    |      context.write
+          |                     |                    |--------------------------&gt;
+</pre></div>
+</div>
+<p>The diagram below decribes the reduce phase of EXPORT job.
+<tt class="docutils literal"><span class="pre">OutputFormat</span></tt> invokes loader&#8217;s <tt class="docutils literal"><span class="pre">load</span></tt> method (via <tt class="docutils literal"><span class="pre">SqoopOutputFormatLoadExecutor</span></tt> ).</p>
+<div class="highlight-none"><div class="highlight"><pre>  ,-------.  ,---------------------.
+  |Reducer|  |SqoopNullOutputFormat|
+  `---+---&#39;  `----------+----------&#39;
+      |                 |   ,-----------------------------.
+      |                 |-&gt; |SqoopOutputFormatLoadExecutor|
+      |                 |   `--------------+--------------&#39;        ,----.
+      |                 |                  |---------------------&gt; |Data|
+      |                 |                  |                       `-+--&#39;
+      |                 |                  |   ,-----------------.   |
+      |                 |                  |-&gt; |SqoopRecordWriter|   |
+    getRecordWriter     |                  |   `--------+--------&#39;   |
+-----------------------&gt;| getRecordWriter  |            |            |
+      |                 |-----------------&gt;|            |            |     ,--------------.
+      |                 |                  |-----------------------------&gt; |ConsumerThread|
+      |                 |                  |            |            |     `------+-------&#39;
+      |                 |&lt;- - - - - - - - -|            |            |            |    ,------.
+&lt;- - - - - - - - - - - -|                  |            |            |            |---&gt;|Loader|
+      |                 |                  |            |            |            |    `--+---&#39;
+      |                 |                  |            |            |            |       |
+      |                 |                  |            |            |            | load  |
+ run  |                 |                  |            |            |            |------&gt;|
+-----&gt;|                 |     write        |            |            |            |       |
+      |------------------------------------------------&gt;| setContent |            | read* |
+      |                 |                  |            |-----------&gt;| getContent |&lt;------|
+      |                 |                  |            |            |&lt;-----------|       |
+      |                 |                  |            |            |            | - - -&gt;|
+      |                 |                  |            |            |            |       | write into DB
+      |                 |                  |            |            |            |       |--------------&gt;
+</pre></div>
+</div>
+</div>
+</div>
+
+
+      </div>
+      <div class="bottomnav">
+      
+        <p>
+        <a class="uplink" href="index.html">Contents</a>
+        </p>
+
+      </div>
+
+    <div class="footer">
+        &copy; Copyright 2009-2013 The Apache Software Foundation.
+    </div>
+  </body>
+</html>

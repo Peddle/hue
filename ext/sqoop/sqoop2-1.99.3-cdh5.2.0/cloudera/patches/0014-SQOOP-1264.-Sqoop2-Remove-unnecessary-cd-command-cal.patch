@@ -1,0 +1,61 @@
+From 82272f00e03681a48685ddbc15663cea14367495 Mon Sep 17 00:00:00 2001
+From: Hari Shreedharan <hshreedharan@apache.org>
+Date: Thu, 2 Jan 2014 09:17:17 -0800
+Subject: [PATCH 14/30] SQOOP-1264. Sqoop2: Remove unnecessary cd command calls from sqoop.sh
+
+(Jarek Jarcec Cecho via Hari Shreedharan)
+---
+ dist/src/main/bin/sqoop.sh |   15 +++------------
+ 1 files changed, 3 insertions(+), 12 deletions(-)
+
+diff --git a/dist/src/main/bin/sqoop.sh b/dist/src/main/bin/sqoop.sh
+index 9aad029..d4298a2 100755
+--- a/dist/src/main/bin/sqoop.sh
++++ b/dist/src/main/bin/sqoop.sh
+@@ -29,8 +29,6 @@ if [ $# = 0 ]; then
+   exit
+ fi
+ 
+-OLD_DIR=`pwd`
+-
+ # resolve links - $0 may be a softlink
+ PRG="${0}"
+ 
+@@ -47,11 +45,10 @@ done
+ BASEDIR=`dirname ${PRG}`
+ BASEDIR=`cd ${BASEDIR}/..;pwd`
+ 
+-cd ${BASEDIR}
+ echo "Sqoop home directory: ${BASEDIR}"
+ 
+-CATALINA_BIN=${CATALINA_BIN:-server/bin}
+-CLIENT_LIB=${CLIENT_LIB:-shell/lib}
++CATALINA_BIN=${CATALINA_BIN:-${BASEDIR}/server/bin}
++CLIENT_LIB=${CLIENT_LIB:-${BASEDIR}/shell/lib}
+ 
+ setup_catalina_opts() {
+   # The Java System properties 'sqoop.http.port' and 'sqoop.admin.port' are
+@@ -110,13 +107,9 @@ case $COMMAND in
+   client)
+     # Build class path with full path to each library
+     for f in $CLIENT_LIB/*.jar; do
+-      CLASSPATH="${CLASSPATH}:${BASEDIR}/$f"
++      CLASSPATH="${CLASSPATH}:$f"
+     done
+ 
+-    # We need to change current directory back to original as optional user side script
+-    # might be specified with relative path.
+-    cd ${OLD_DIR}
+-
+     EXEC_JAVA='java'
+     if [ -n "${JAVA_HOME}" ] ; then
+         EXEC_JAVA="${JAVA_HOME}/bin/java"
+@@ -128,5 +121,3 @@ case $COMMAND in
+     echo "Command is not recognized."
+     ;;
+ esac
+-
+-cd ${OLD_DIR}
+-- 
+1.7.0.4
+
