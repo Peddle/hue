@@ -32,8 +32,12 @@ class IndexerTest():
     # test fields
     expected_fields = [
       {
+        "name": "id",
+        "type": "int"
+      },
+      {
         "name": "Rating",
-        "type": "string"
+        "type": "int"
       },
       {
         "name": "Location",
@@ -79,19 +83,27 @@ class IndexerTest():
     LOG.info(result)
     # TEST SOMEHOW?
 
+
   def test_end_to_end(self):
-    collection_name = "tsv_commits_test"
+    collection_name = "taxi_data_2"
     indexer = Indexer()
+    input_loc = "/tmp/taxi_data.csv"
 
     # stream = StringIO.StringIO(IndexerTest.simpleCSVString)
-    stream = open("/home/aaronpeddle/Downloads/commits.tsv")
+    # stream = open("/home/aaronpeddle/Downloads/commits.tsv")
+    from hadoop import cluster
+    stream = cluster.get_hdfs().open(input_loc)
 
     format_ = indexer.guess_format({'file': stream})
     
+    unique_field = indexer.get_uuid_name(format_)
+    print "Unique Field: " + unique_field 
+
+
     # this has already benn done
     # schema = indexer.generate_solr_schema(format_)
 
-    morphline = indexer.generate_morphline_config(collection_name,format_)
+    morphline = indexer.generate_morphline_config(collection_name,format_, unique_field)
 
 
     # # job = Submission('hue').run(deployment_dir="/user/hue/oozie/workspaces/hue-oozie-1465324937.64")
@@ -99,11 +111,12 @@ class IndexerTest():
     # # indexer.create_solr_collection(collection_name, schema)
 
     # TODO rename to fields to fit in with controller2 convention
-    CollectionManagerController("solr").create_collection(collection_name, format_['columns'])
+    CollectionManagerController("solr").\
+      create_collection(collection_name, [{"name": unique_field, "type": "string"}] + format_['columns'], unique_key_field=unique_field)
 
     # indexer.generate_indexing_job(morphline)
 
-    indexer.run_morphline(collection_name, morphline, "/tmp/commits.tsv")
+    indexer.run_morphline(collection_name, morphline, input_loc)
 
     # TODO add cleanup here
 

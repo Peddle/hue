@@ -7,6 +7,8 @@ from liboozie.submission2 import Submission
 
 LOG = logging.getLogger(__name__)
 
+
+
 class Indexer(object):
   def run_morphline(self, collection_name, morphline, input_path):
     fs = cluster.get_hdfs()
@@ -64,6 +66,16 @@ class Indexer(object):
 
     return dict(file_format)
 
+  def get_uuid_name(self, format_):
+    base_name = "_uuid"
+
+    field_names = set([column['name'] for column in format_['columns']])
+
+    while base_name in field_names:
+      base_name = '_' + base_name
+
+    return base_name
+
   def generate_solr_schema(self, data):
     # TODO: schema should be based off of user input. Why read from path again?
     """
@@ -87,12 +99,24 @@ class Indexer(object):
 
   @staticmethod
   def _format_character(string):
+    string = string.replace('\\', '\\\\')
     string = string.replace('"', '\\"')
     string = string.replace('\t', '\\t')
 
     return string
 
-  def generate_morphline_config(self, collection_name, data):
+  @staticmethod
+  def _get_regex_for_type(type_):
+    regexes = {
+      "string":".+",
+      "int": "(?:[+-]?(?:[0-9]+))",
+      "long": "(?:[+-]?(?:[0-9]+))",
+      "double": "(?<![0-9.+-])(?>[+-]?(?:(?:[0-9]+(?:\\.[0-9]+)?)|(?:\\.[0-9]+)))"
+    }
+
+    return regexes[type_].replace('\\', '\\\\')
+
+  def generate_morphline_config(self, collection_name, data, uuid_name):
     """
     Input:
     data: {
@@ -112,6 +136,8 @@ class Indexer(object):
       collection_name=collection_name,
       fields=data['columns'],
       format_character=Indexer._format_character,
+      uuid_name = uuid_name,
+      get_regex=Indexer._get_regex_for_type,
       format=data['format'])
     
   def generate_indexing_job(self, data, morphline):
@@ -154,7 +180,7 @@ class FileType(object):
 class CSVType(FileType):
   def __init__(self, file_stream):
     file_stream.seek(0)
-    sample = file_stream.read(1024)
+    sample = file_stream.read(1024*1024)
     file_stream.seek(0)
 
     self._dialect, self._has_header = self._guess_dialect(sample)
@@ -187,9 +213,45 @@ class CSVType(FileType):
     # TODO: why not just store dialect object?
     return dialect, has_header
 
-  def _guess_field_type(self, sample_rows):
-    # TODO: actually guess
-    return ["string" for col in sample_rows[0]]
+  def _guess_field_type(self, field):
+    type_ = "string"
+
+    try:
+      num = int(field)
+
+      if isinstance(num, int):
+        type_ = "int"
+      elif isinstance(num, long):
+        type_ = "long"
+    except Exception:
+      try:
+        num = float(field)
+        type_ = "double"
+      except Exception:
+        pass
+
+    return type_
+
+  def _pick_best(self, types):
+    if "string" in types:
+      return "string"
+    elif "double" in types:
+      return "double"
+    elif "long" in types:
+      return "long"
+    else:
+      return "int"
+
+  def _guess_field_types(self, sample_rows):
+    all_guesses = [set() for _ in range(len(sample_rows[0]))]
+
+    for row in sample_rows:
+      row_guesses = [self._guess_field_type(col) for col in row]
+
+      for col in range(len(row_guesses)):
+        all_guesses[col].add(row_guesses[col])
+
+    return [self._pick_best(types) for types in all_guesses]
 
   def _guess_fields(self, sample):
     reader = csv.reader(sample.splitlines(), delimiter=self.delimiter, quotechar=self.quote_char)
@@ -198,7 +260,7 @@ class CSVType(FileType):
 
 
     header = first_row if self._has_header else [\
-      "field_%d" % (i+1) if i >= 1 else "id"\
+      "field_%d" % (i+1)\
       for i in range(len(first_row))]
 
     # TODO: keep first_row or lazily throw away?
@@ -215,7 +277,7 @@ class CSVType(FileType):
       except StopIteration:
         break
 
-    types = self._guess_field_type(sample_rows)
+    types = self._guess_field_types(sample_rows)
 
     # TODO: replace this with elegant error handling
     assert len(header) == len(types)
