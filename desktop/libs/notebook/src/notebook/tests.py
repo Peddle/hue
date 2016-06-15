@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+## -*- coding: utf-8 -*-
 # Licensed to Cloudera, Inc. under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -27,6 +28,8 @@ from desktop.lib.test_utils import grant_access
 from desktop.models import Directory, Document, Document2
 
 from notebook.api import _historify
+from notebook.connectors.base import QueryError
+from notebook.decorators import api_error_handler
 
 
 class TestNotebookApi(object):
@@ -103,7 +106,7 @@ class TestNotebookApi(object):
         ],
         "type": "query-hive",
         "id": null,
-        "snippets": [],
+        "snippets": [{"id":"2b7d1f46-17a0-30af-efeb-33d4c29b1055","type":"hive","status":"running","statement":"select * from web_logs","properties":{"settings":[],"files":[],"functions":[]},"result":{"id":"b424befa-f4f5-8799-a0b4-79753f2552b1","type":"table","handle":{"log_context":null,"statements_count":1,"end":{"column":21,"row":0},"statement_id":0,"has_more_statements":false,"start":{"column":0,"row":0},"secret":"rVRWw7YPRGqPT7LZ/TeFaA==an","has_result_set":true,"statement":"select * from web_logs","operation_type":0,"modified_row_count":null,"guid":"7xm6+epkRx6dyvYvGNYePA==an"}},"lastExecuted": 1462554843817,"database":"default"}],
         "uuid": "d9efdee1-ef25-4d43-b8f9-1a170f69a05a"
     }
     """
@@ -114,6 +117,9 @@ class TestNotebookApi(object):
     assert_equal(0, data['status'], data)
     doc = Document2.objects.get(pk=data['id'])
     assert_equal(Document2.objects.get_home_directory(self.user).uuid, doc.parent_directory.uuid)
+
+    # Test that saving a notebook will save the search field to the first statement text
+    assert_equal(doc.search, "select * from web_logs")
 
 
   def test_historify(self):
@@ -173,3 +179,33 @@ class TestNotebookApi(object):
     assert_false(Document2.objects.filter(type='query-hive', is_history=True).exists())
     assert_true(Document2.objects.filter(type='query-hive', is_history=False).exists())
     assert_true(Document2.objects.filter(type='query-impala', is_history=True).exists())
+
+
+  def test_query_error_encoding(self):
+    @api_error_handler
+    def send_exception(message):
+      raise QueryError(message=message)
+
+    message = """SELECT
+a.key,
+a.*
+FROM customers c, c.addresses a"""
+    response =send_exception(message)
+    data = json.loads(response.content)
+    assert_equal(1, data['status'])
+
+    message = """SELECT
+\u2002\u2002a.key,
+\u2002\u2002a.*
+FROM customers c, c.addresses a"""
+    response =send_exception(message)
+    data = json.loads(response.content)
+    assert_equal(1, data['status'])
+
+    message = u"""SELECT
+a.key,
+a.*
+FROM déclenché c, c.addresses a"""
+    response =send_exception(message)
+    data = json.loads(response.content)
+    assert_equal(1, data['status'])

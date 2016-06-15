@@ -66,10 +66,16 @@
     });
     self.metaFilter = ko.observable('');
     self.isMetaFilterVisible = ko.observable(false);
+    self.filteredMetaChecked = ko.observable(true);
     self.filteredMeta = ko.pureComputed(function () {
       return ko.utils.arrayFilter(self.meta(), function (item, i) {
         if (typeof item.checked === 'undefined') {
-          item.checked = true;
+          item.checked = ko.observable(true);
+          item.checked.subscribe(function () {
+            self.filteredMetaChecked(ko.utils.arrayFilter(self.filteredMeta(), function (item) {
+                return !item.checked();
+              }).length == 0);
+          });
         }
         if (typeof item.originalIndex === 'undefined') {
           item.originalIndex = i;
@@ -77,6 +83,13 @@
         return item.name.toLowerCase().indexOf(self.metaFilter().toLowerCase()) > -1;
       });
     });
+
+    self.clickFilteredMetaCheck = function () {
+      self.filteredMeta().forEach(function (item) {
+        item.checked(self.filteredMetaChecked());
+      });
+    };
+
     self.hasManyColumns = ko.pureComputed(function () {
       return self.meta() && self.meta().length > 300;
     });
@@ -450,12 +463,37 @@
         $(document).trigger("gridShown", self);
       }
     });
+
+    function prepopulateChart() {
+      var type = self.chartType();
+      if (self.result.cleanedMeta().length > 0) {
+        if (self.chartX() == null && (type == ko.HUE_CHARTS.TYPES.BARCHART || type == ko.HUE_CHARTS.TYPES.PIECHART || type == ko.HUE_CHARTS.TYPES.GRADIENTMAP)) {
+          self.chartX(self.result.cleanedMeta()[0].name);
+        }
+        if (self.chartMapLabel() == null && type == ko.HUE_CHARTS.TYPES.MAP) {
+          self.chartMapLabel(self.result.cleanedMeta()[0].name);
+        }
+      }
+      if (self.result.cleanedNumericMeta().length > 0) {
+        if (self.chartX() == null && type != ko.HUE_CHARTS.TYPES.BARCHART && type != ko.HUE_CHARTS.TYPES.PIECHART && type != ko.HUE_CHARTS.TYPES.GRADIENTMAP) {
+          self.chartX(self.result.cleanedNumericMeta()[0].name);
+        }
+        if (self.chartYMulti().length == 0 && (type == ko.HUE_CHARTS.TYPES.BARCHART || type == ko.HUE_CHARTS.TYPES.LINECHART)) {
+          self.chartYMulti.push(self.result.cleanedNumericMeta()[0].name);
+        }
+        if (self.chartYSingle() == null && (type == ko.HUE_CHARTS.TYPES.PIECHART || type == ko.HUE_CHARTS.TYPES.MAP || type == ko.HUE_CHARTS.TYPES.GRADIENTMAP || type == ko.HUE_CHARTS.TYPES.SCATTERCHART)) {
+          self.chartYSingle(type == ko.HUE_CHARTS.TYPES.GRADIENTMAP ? self.result.cleanedMeta()[0].name : self.result.cleanedNumericMeta()[0].name);
+        }
+      }
+    }
+
     self.showChart.subscribe(function (val) {
       if (val) {
         self.showGrid(false);
         self.isResultSettingsVisible(true);
         $(document).trigger("forceChartDraw", self);
         $(document).trigger("chartShown", self);
+        prepopulateChart();
       }
     });
     self.showLogs.subscribe(function (val) {
@@ -492,6 +530,7 @@
     self.hasSuggestion = ko.observable(false);
 
     self.chartType = ko.observable(typeof snippet.chartType != "undefined" && snippet.chartType != null ? snippet.chartType : ko.HUE_CHARTS.TYPES.BARCHART);
+    self.chartType.subscribe(prepopulateChart);
     self.chartSorting = ko.observable(typeof snippet.chartSorting != "undefined" && snippet.chartSorting != null ? snippet.chartSorting : "none");
     self.chartScatterGroup = ko.observable(typeof snippet.chartScatterGroup != "undefined" && snippet.chartScatterGroup != null ? snippet.chartScatterGroup : null);
     self.chartScatterSize = ko.observable(typeof snippet.chartScatterSize != "undefined" && snippet.chartScatterSize != null ? snippet.chartScatterSize : null);
@@ -995,7 +1034,9 @@
           if (data.jobs.length > 0) {
             self.jobs(data.jobs);
           }
-          self.progress(data.progress);
+          if (self.status() == 'running') { // Maybe the query finished or failed in the meantime
+            self.progress(data.progress)
+          };
         } else {
           self._ajaxError(data);
         }
@@ -1667,6 +1708,8 @@
 
     self.isLeftPanelVisible = ko.observable();
     ApiHelper.getInstance(self).withTotalStorage('assist', 'assist_panel_visible', self.isLeftPanelVisible, true);
+
+    self.isContextPanelVisible = ko.observable(false);
 
     self.availableSnippets = ko.mapping.fromJS(options.languages);
 

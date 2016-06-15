@@ -106,6 +106,9 @@ class Submission(object):
     Returns the oozie job id if all goes well.
     """
 
+    if self.properties and 'oozie.use.system.libpath' not in self.properties:
+      self.properties['oozie.use.system.libpath'] = 'true'
+
     self.oozie_id = self.api.submit_job(self.properties)
     LOG.info("Submitted: %s" % (self,))
 

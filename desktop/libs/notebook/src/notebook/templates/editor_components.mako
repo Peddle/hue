@@ -199,7 +199,7 @@ ${ hueIcons.symbols() }
 
         &nbsp;&nbsp;&nbsp;
 
-        <a class="btn pointer" title="${ _('Sessions') }" rel="tooltip" data-placement="bottom" data-toggle="modal" data-target="#sessionsDemiModal">
+        <a class="btn pointer" title="${ _('Sessions') }" rel="tooltip" data-placement="bottom" data-bind="css: {'active': $root.isContextPanelVisible }, click: function() { $root.isContextPanelVisible(!$root.isContextPanelVisible()); }">
           <i class="fa fa-cogs"></i>
         </a>
 
@@ -984,6 +984,57 @@ ${ hueIcons.symbols() }
       %endif
     </div>
   </div>
+
+  <div class="context-panel" data-bind="css: {'visible': isContextPanelVisible}">
+    <div class="row-fluid">
+      <div class="span12">
+        <!-- ko with: $root.selectedNotebook() -->
+        <form class="form-horizontal">
+          <fieldset>
+            <legend><i class="fa fa-cloud"></i> ${ _('Sessions') }</legend>
+            <!-- ko ifnot: sessions().length -->
+            <p>${ _('There are currently no active sessions.') }</p>
+            <!-- /ko -->
+            <!-- ko foreach: sessions -->
+            <h4 data-bind="text: $root.getSnippetName(type())" style="clear:left; display: inline-block"></h4>
+            <div class="session-actions">
+              <a class="inactive-action pointer" title="${ _('Recreate session') }" rel="tooltip" data-bind="click: function() { $root.selectedNotebook().restartSession($data) }"><i class="fa fa-refresh" data-bind="css: { 'fa-spin': restarting }"></i> ${ _('Recreate') }</a>
+              <a class="inactive-action pointer margin-left-10" title="${ _('Close session') }" rel="tooltip" data-bind="click: function() { $root.selectedNotebook().closeAndRemoveSession($data) }"><i class="fa fa-times"></i> ${ _('Close') }</a>
+              %if conf.USE_DEFAULT_CONFIGURATION.get():
+              <a class="inactive-action pointer margin-left-10" title="${ _('Save session settings as default') }" rel="tooltip" data-bind="click: function() { $root.selectedNotebook().saveDefaultUserProperties($data) }"><i class="fa fa-save"></i> ${ _('Set as default settings') }</a>
+              %endif
+              <!-- ko if: type()== 'impala' && typeof http_addr != 'undefined' -->
+              <a class="margin-left-10" data-bind="attr: {'href': window.location.protocol + '//' + http_addr().replace(/^(https?):\/\//, '')}" target="_blank"><i class="fa fa-external-link"></i> <span data-bind="text: http_addr().replace(/^(https?):\/\//, '')"></span></a>
+              <!-- /ko -->
+            </div>
+            <div style="width:100%;">
+              <!-- ko component: { name: 'property-selector', params: { properties: properties } } --><!-- /ko -->
+            </div>
+            <div style="clear:both; padding-left: 120px;">
+              <!-- ko if: availableNewProperties().length -->
+              <select data-bind="options: availableNewProperties,
+                       optionsText: 'nice_name',
+                       optionsValue: 'name',
+                       value: selectedSessionProperty,
+                       optionsCaption: '${ _ko('Choose a property...') }'"></select>
+              <a class="pointer" style="padding:5px;" data-bind="click: selectedSessionProperty() && function() {
+                  properties.push(ko.mapping.fromJS({'name': selectedSessionProperty(), 'value': ''}));
+                  selectedSessionProperty('');
+                }" style="margin-left:10px;vertical-align: text-top;">
+                <i class="fa fa-plus"></i>
+              </a>
+              <!-- /ko -->
+            </div>
+            <!-- /ko -->
+            <!-- /ko -->
+            <br/>
+          </fieldset>
+        </form>
+        <!-- /ko -->
+      </div>
+    </div>
+  </div>
+
 </script>
 
 <script type="text/html" id="snippetIcon">
@@ -1033,15 +1084,15 @@ ${ hueIcons.symbols() }
       <ul class="nav nav-tabs">
         <li data-bind="click: function(){ currentQueryTab('queryHistory'); }, css: {'active': currentQueryTab() == 'queryHistory'}">
           <a class="inactive-action" href="#queryHistory" data-toggle="tab">${_('Query History')}
-            <div class="inline-block inactive-action margin-left-10 pointer" title="${_('Search the query history')}" data-bind="click: function(data, e){ $parent.historyFilterVisible(!$parent.historyFilterVisible()); window.setTimeout(function(){ $(e.target).parent().siblings('input').focus(); }, 0); }"><i class="snippet-icon fa fa-search"></i></div>
-            <input class="input-small history-filter" type="text" data-bind="visible: $parent.historyFilterVisible, clearable: $parent.historyFilter, valueUpdate:'afterkeydown'" placeholder="${ _('Search...') }">
+            <div class="inline-block inactive-action margin-left-10 pointer" title="${_('Search the query history')}" data-bind="click: function(data, e){ $parent.historyFilterVisible(true); window.setTimeout(function(){ $(e.target).parent().siblings('input').focus(); }, 0); }"><i class="snippet-icon fa fa-search"></i></div>
+            <input class="input-small history-filter" type="text" data-bind="visible: $parent.historyFilterVisible, blurHide: $parent.historyFilterVisible, clearable: $parent.historyFilter, valueUpdate:'afterkeydown'" placeholder="${ _('Search...') }">
             <div class="inline-block inactive-action pointer" title="${_('Clear the query history')}" data-target="#clearHistoryModal" data-toggle="modal" rel="tooltip" data-bind="visible: $parent.history().length > 0"><i class="snippet-icon fa fa-calendar-times-o"></i></div>
           </a>
         </li>
         <li data-bind="click: function(){ currentQueryTab('savedQueries'); }, css: {'active': currentQueryTab() == 'savedQueries'}">
           <a class="inactive-action" href="#savedQueries" data-toggle="tab">${_('Saved Queries')}
-            <div class="inline-block inactive-action margin-left-10 pointer" title="${_('Search the saved queries')}" data-bind="visible: !queriesHasErrors(), click: function(data, e){ queriesFilterVisible(!queriesFilterVisible()); window.setTimeout(function(){ $(e.target).parent().siblings('input').focus(); }, 0); }"><i class="snippet-icon fa fa-search"></i></div>
-            <input class="input-small history-filter" type="text" data-bind="visible: queriesFilterVisible, clearable: queriesFilter, valueUpdate:'afterkeydown'" placeholder="${ _('Search...') }">
+            <div class="inline-block inactive-action margin-left-10 pointer" title="${_('Search the saved queries')}" data-bind="visible: !queriesHasErrors(), click: function(data, e){ queriesFilterVisible(true); window.setTimeout(function(){ $(e.target).parent().siblings('input').focus(); }, 0); }"><i class="snippet-icon fa fa-search"></i></div>
+            <input class="input-small history-filter" type="text" data-bind="visible: queriesFilterVisible, blurHide: queriesFilterVisible, clearable: queriesFilter, valueUpdate:'afterkeydown'" placeholder="${ _('Search...') }">
           </a>
         </li>
         %if ENABLE_QUERY_BUILDER.get():
@@ -1417,7 +1468,7 @@ ${ hueIcons.symbols() }
       <li class="nav-header">${_('scatter size')}</li>
     </ul>
     <div data-bind="visible: chartType() == ko.HUE_CHARTS.TYPES.SCATTERCHART">
-      <select data-bind="options: result.cleanedMeta, value: chartScatterSize, optionsText: 'name', optionsValue: 'name', optionsCaption: '${_ko('Choose a column...')}', select2: { width: '100%', placeholder: '${ _ko("Choose a column...") }', update: chartScatterSize}" class="input-medium"></select>
+      <select data-bind="options: result.cleanedNumericMeta, value: chartScatterSize, optionsText: 'name', optionsValue: 'name', optionsCaption: '${_ko('Choose a column...')}', select2: { width: '100%', placeholder: '${ _ko("Choose a column...") }', update: chartScatterSize}" class="input-medium"></select>
     </div>
 
     <!-- ko if: chartType() != '' && chartType() == ko.HUE_CHARTS.TYPES.GRADIENTMAP -->
@@ -1456,18 +1507,19 @@ ${ hueIcons.symbols() }
 <script type="text/html" id="snippet-grid-settings">
   <div style="overflow:auto">
     <ul class="nav nav-list" style="border: none; background-color: #FFF">
-      <li class="nav-header" title="${_('Hide columns')}">
-        <span class="inactive-action pull-right" href="javascript:void(0)" data-bind="click: function(){ result.isMetaFilterVisible(!result.isMetaFilterVisible()); }, css: { 'blue' : result.isMetaFilterVisible }"><i class="pointer fa fa-search" title="${ _('Search') }"></i></span>
+      <li class="nav-header" title="${_('Hide columns')}" style="margin-left: -2px">
+        <span class="inactive-action pull-right" href="javascript:void(0)" data-bind="click: function(){ result.isMetaFilterVisible(true); }, css: { 'blue' : result.isMetaFilterVisible }"><i class="pointer fa fa-search" title="${ _('Search') }"></i></span>
+        <input class="all-meta-checked no-margin-top" type="checkbox" data-bind="enable: !result.isMetaFilterVisible() && result.filteredMeta().length > 0, event: { change: function(){ toggleAllColumns($element, $data); result.clickFilteredMetaCheck() } }, checked: result.filteredMetaChecked" />
         <span class="meta-title pointer" data-bind="click: toggleResultSettings">${_('columns')}</span>
       </li>
     </ul>
-    <input class="meta-filter" type="text" data-bind="visible: result.isMetaFilterVisible, clearable: result.metaFilter, valueUpdate:'afterkeydown'" placeholder="${ _('Filter columns...') }" />
+    <input class="meta-filter" type="text" data-bind="visible: result.isMetaFilterVisible, hasFocus: result.isMetaFilterVisible, clearable: result.metaFilter, valueUpdate:'afterkeydown'" placeholder="${ _('Filter columns...') }" style="margin-bottom: 10px"/>
     <div class="margin-top-10 muted meta-noresults" data-bind="visible: result.filteredMeta().length === 0">
       ${ _('No results found') }
     </div>
-    <ul class="unstyled" data-bind="foreach: result.filteredMeta">
+    <ul class="unstyled filtered-meta" data-bind="foreach: result.filteredMeta">
       <li data-bind="visible: name != ''">
-        <input type="checkbox" data-bind="event: { change: function(){ toggleColumn($element, $data.originalIndex, $parent);} }, checked: $data.checked" />
+        <input class="no-margin-top" type="checkbox" data-bind="event: { change: function(){ toggleColumn($element, $data.originalIndex, $parent);} }, checked: $data.checked" />
         <a class="pointer" data-bind="text: $data.name, click: function(){ scrollToColumn($element, $data.originalIndex); }, attr: { title: $data.type + ' ' + '${ _('Click to scroll to data') }'}"></a>
       </li>
     </ul>
@@ -1818,62 +1870,6 @@ ${ hueIcons.symbols() }
     <a class="btn" data-bind="click: function() { $root.removeSnippetConfirmation(null); $('#removeSnippetModal').modal('hide'); }">${_('No')}</a>
     <input type="submit" value="${_('Yes')}" class="btn btn-danger" data-bind="click: function() { notebook.snippets.remove(snippet); redrawFixedHeaders(100); $root.removeSnippetConfirmation(null); $('#removeSnippetModal').modal('hide'); }" />
   </div>
-</div>
-
-
-<div id="sessionsDemiModal" class="demi-modal fade" data-backdrop="false">
-  <a href="javascript: void(0)" data-dismiss="modal" class="pull-right" style="margin: 10px"><i class="fa fa-times"></i></a>
-  <div class="modal-body">
-    <div class="row-fluid">
-      <div class="span12">
-        <!-- ko with: $root.selectedNotebook() -->
-        <form class="form-horizontal">
-          <fieldset>
-            <legend><i class="fa fa-cloud"></i> ${ _('Sessions') }</legend>
-            <!-- ko ifnot: sessions().length -->
-            <p>${ _('There are currently no active sessions.') }</p>
-            <!-- /ko -->
-            <!-- ko foreach: sessions -->
-            <h4 data-bind="text: $root.getSnippetName(type())" style="clear:left; display: inline-block"></h4>
-            <div class="session-actions">
-              <a class="inactive-action pointer" title="${ _('Recreate session') }" rel="tooltip" data-bind="click: function() { $root.selectedNotebook().restartSession($data) }"><i class="fa fa-refresh" data-bind="css: { 'fa-spin': restarting }"></i> ${ _('Recreate') }</a>
-              <a class="inactive-action pointer margin-left-10" title="${ _('Close session') }" rel="tooltip" data-bind="click: function() { $root.selectedNotebook().closeAndRemoveSession($data) }"><i class="fa fa-times"></i> ${ _('Close') }</a>
-              %if conf.USE_DEFAULT_CONFIGURATION.get():
-              <a class="inactive-action pointer margin-left-10" title="${ _('Save session settings as default') }" rel="tooltip" data-bind="click: function() { $root.selectedNotebook().saveDefaultUserProperties($data) }"><i class="fa fa-save"></i> ${ _('Set as default settings') }</a>
-              %endif
-              <!-- ko if: type()== 'impala' && typeof http_addr != 'undefined' -->
-              <a class="margin-left-10" data-bind="attr: {'href': window.location.protocol + '//' + http_addr().replace(/^(https?):\/\//, '')}" target="_blank"><i class="fa fa-external-link"></i> <span data-bind="text: http_addr().replace(/^(https?):\/\//, '')"></span></a>
-              <!-- /ko -->
-            </div>
-            <div style="width:100%;">
-              <!-- ko component: { name: 'property-selector', params: { properties: properties } } --><!-- /ko -->
-            </div>
-            <div style="clear:both; padding-left: 120px;">
-              <!-- ko if: availableNewProperties().length -->
-              <select data-bind="options: availableNewProperties,
-                       optionsText: 'nice_name',
-                       optionsValue: 'name',
-                       value: selectedSessionProperty,
-                       optionsCaption: '${ _ko('Choose a property...') }'"></select>
-              <a class="pointer" style="padding:5px;" data-bind="click: selectedSessionProperty() && function() {
-                  properties.push(ko.mapping.fromJS({'name': selectedSessionProperty(), 'value': ''}));
-                  selectedSessionProperty('');
-                }" style="margin-left:10px;vertical-align: text-top;">
-                <i class="fa fa-plus"></i>
-              </a>
-              <!-- /ko -->
-            </div>
-            <!-- /ko -->
-            <!-- /ko -->
-            <br/>
-          </fieldset>
-        </form>
-        <!-- /ko -->
-      </div>
-    </div>
-
-  </div>
-  <div style="position:absolute; width:100%; bottom: 0;"><a class="pointer demi-modal-chevron" data-dismiss="modal"><i class="fa fa-chevron-up"></i></a></div>
 </div>
 
 
@@ -2232,6 +2228,19 @@ ${ hueIcons.symbols() }
     return _dt;
   }
 
+  function toggleAllColumns(linkElement, snippet) {
+    var dt;
+    if (snippet.result.hasManyColumns()) {
+      dt = $(linkElement).parents(".snippet").find("table.resultTable:eq(0)").hueDataTable();
+    } else {
+      dt = $(linkElement).parents(".snippet").find("table.resultTable:eq(0)").dataTable();
+    }
+    $(linkElement).parents(".snippet").find('.filtered-meta li input').each(function (idx, item) {
+      dt.fnSetColumnVis(idx, linkElement.checked, false);
+    });
+    dt.fnDraw();
+  }
+
   function toggleColumn(linkElement, index, snippet) {
     var dt;
     if (snippet.result.hasManyColumns()) {
@@ -2239,7 +2248,7 @@ ${ hueIcons.symbols() }
     } else {
       dt = $(linkElement).parents(".snippet").find("table.resultTable:eq(0)").dataTable();
     }
-    dt.fnSetColumnVis(index, !dt.fnSettings().aoColumns[index].bVisible);
+    dt.fnSetColumnVis(index, linkElement.checked);
   }
 
   function scrollToColumn(linkElement) {
@@ -2254,7 +2263,9 @@ ${ hueIcons.symbols() }
       _colSel.addClass("columnSelected");
       _t.parent().animate({
         scrollLeft: _colSel.position().left + _t.parent().scrollLeft() - _t.parent().offset().left - 30
-      }, 300);
+      }, 300, function(){
+        _t.parent().trigger('scroll_update');
+      });
     }
   }
 
@@ -2389,7 +2400,7 @@ ${ hueIcons.symbols() }
             _data.push({
               series: _plottedSerie,
               x: _isXDate ? moment(item[_idxLabel]) : hueUtils.html2text(item[_idxLabel]),
-              y: item[_idxValue],
+              y: item[_idxValue]*1,
               obj: item
             });
           });
@@ -2968,11 +2979,22 @@ ${ hueIcons.symbols() }
 
       $(".preview-sample").css("right", (10 + hueUtils.scrollbarWidth()) + "px");
 
+      function saveKeyHandler() {
+        if (viewModel.canSave()) {
+          viewModel.saveNotebook();
+        }
+        else {
+          $('#saveAsModal').modal('show');
+        }
+      }
+
       $(window).bind("keydown", "ctrl+s alt+s meta+s", function (e) {
         e.preventDefault();
-        viewModel.saveNotebook();
+        saveKeyHandler();
         return false;
       });
+
+      huePubSub.subscribe('editor.save', saveKeyHandler);
 
       $(document).bind('keyup', function (e) {
         if (e.keyCode == 191 && !$(e.target).is('input') && !$(e.target).is('textarea')) {
@@ -2980,13 +3002,22 @@ ${ hueIcons.symbols() }
         }
       });
 
-      if (!viewModel.editorMode) {
-        $(window).bind("keydown", "ctrl+n alt+n meta+n", function (e) {
-          e.preventDefault();
+      function newKeyHandler() {
+        if (!viewModel.editorMode) {
           viewModel.selectedNotebook().newSnippet();
-          return false;
-        });
+        }
+        else {
+          viewModel.newNotebook(true);
+        }
       }
+
+      $(window).bind("keydown", "ctrl+e alt+e meta+e", function (e) {
+        e.preventDefault();
+        newKeyHandler();
+        return false;
+      });
+
+      huePubSub.subscribe('editor.create.new', newKeyHandler);
 
       var initialResizePosition = 100;
 

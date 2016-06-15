@@ -1694,6 +1694,20 @@
     }
   }
 
+  ko.bindingHandlers.blurHide = {
+    init: function (element, valueAccessor) {
+      var $el = $(element);
+      var prop = valueAccessor();
+      $el.on('blur', function () {
+        if ($.trim($el.val()) === '') {
+          if (ko.isObservable(prop)) {
+            prop(false);
+          }
+        }
+      });
+    }
+  }
+
   ko.bindingHandlers.spinedit = {
     init: function (element, valueAccessor, allBindingsAccessor, viewModel) {
       var options = $.extend({
@@ -2192,7 +2206,8 @@
           skipColumns: options.skipColumns,
           startingPath: options.database + '.',
           rewriteVal: true,
-          onPathChange: options.onChange
+          onPathChange: options.onChange,
+          searchEverywhere : options.searchEverywhere || false
         });
       }
       else {
@@ -2625,6 +2640,11 @@
       editor.on("focus", initAutocompleters);
       initAutocompleters();
 
+      var removeUnicodes = function (value) {
+        var UNICODES_TO_REMOVE = /[\u1680\u180E\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u200B\u202F\u205F\u3000\uFEFF]/ig;  //taken from https://www.cs.tut.fi/~jkorpela/chars/spaces.html
+        return value.replace(UNICODES_TO_REMOVE, ' ');
+      }
+
       var placeHolderElement = null;
       var placeHolderVisible = false;
       var placeHolderText = snippet.getPlaceHolder();
@@ -2648,7 +2668,8 @@
           placeHolderVisible = false;
         }
         if (options.updateOnInput){
-          snippet.statement_raw(editor.getValue());
+
+          snippet.statement_raw(removeUnicodes(editor.getValue()));
         }
         if (editor.session.$backMarkers) {
           for (var marker in editor.session.$backMarkers) {
@@ -2671,9 +2692,9 @@
 
       editor.on("blur", function () {
         snippet.inFocus(false);
-        snippet.statement_raw(editor.getValue());
+        snippet.statement_raw(removeUnicodes(editor.getValue()));
         if (options.onBlur) {
-          options.onBlur($el, editor.getValue());
+          options.onBlur($el, removeUnicodes(editor.getValue()));
         }
       });
 
@@ -2899,7 +2920,7 @@
       });
 
       editor.on("change", function (e) {
-        snippet.statement_raw(editor.getValue());
+        snippet.statement_raw(removeUnicodes(editor.getValue()));
         editor.clearErrors();
         editor.session.getMode().$id = snippet.getAceMode();
         var currentSize = editor.session.getLength();
@@ -2929,8 +2950,24 @@
         name: "execute",
         bindKey: {win: "Ctrl-Enter", mac: "Command-Enter|Ctrl-Enter"},
         exec: function () {
-          snippet.statement_raw(editor.getValue());
+          snippet.statement_raw(removeUnicodes(editor.getValue()));
           snippet.execute();
+        }
+      });
+
+      editor.commands.addCommand({
+        name: "new",
+        bindKey: {win: "Ctrl-e", mac: "Command-e|Ctrl-e"},
+        exec: function () {
+          huePubSub.publish('editor.create.new');
+        }
+      });
+
+      editor.commands.addCommand({
+        name: "save",
+        bindKey: {win: "Ctrl-s", mac: "Command-s|Ctrl-s"},
+        exec: function () {
+          huePubSub.publish('editor.save');
         }
       });
 
@@ -2945,7 +2982,7 @@
               }
               else {
                 editor.setValue(vkbeautify.sql(editor.getValue(), 2), 1);
-                snippet.statement_raw(editor.getValue());
+                snippet.statement_raw(removeUnicodes(editor.getValue()));
               }
             }
           }
@@ -3622,6 +3659,7 @@
         considerStretching = valueAccessor().considerStretching || false,
         itemHeight = valueAccessor().itemHeight || 22,
         scrollable = valueAccessor().scrollable || 'body',
+        scrollUp = valueAccessor().scrollUp || false,
         scrollableOffset = valueAccessor().scrollableOffset || 0,
         disableHueEachRowCount = valueAccessor().disableHueEachRowCount || 0,
         forceRenderSub = valueAccessor().forceRenderSub || null,
@@ -3715,6 +3753,9 @@
       huePubSub.publish('scrollable.scroll.off', scrollable);
 
       $parent.parents(scrollable).on('scroll', render);
+      if (scrollUp){
+        $parent.parents(scrollable).jHueScrollUp();
+      }
 
       if ($parent.parents('.hueach').length > 0) {
         window.setTimeout(render, 100);

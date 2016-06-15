@@ -494,8 +494,11 @@
       ${ _('Arguments') } <i class="fa fa-plus"></i>
     </a>
   </h6>
-  <ul class="unstyled" data-bind="visible: properties.arguments().length > 0, foreach: properties.arguments">
+  <ul class="unstyled white sortable-arguments" data-bind="visible: properties.arguments().length > 0,  sortable: { data: properties.arguments, options: { axis: 'y', containment: 'parent' }}">
     <li style="margin-bottom: 3px">
+      <span class="muted move-widget">
+        <i class="fa fa-arrows"></i>
+      </span>
       <input type="text" class="span11" data-bind="value: value, attr: { placeholder: $root.workflow_properties.arguments.help_text }" validate="nonempty"/>
       <a href="#" data-bind="click: function(){ $parent.properties.arguments.remove(this); $(document).trigger('drawArrows') }">
         <i class="fa fa-minus"></i>
@@ -840,16 +843,25 @@
             ${ _('Arguments') } <i class="fa fa-plus"></i>
           </a>
         </h6>
-        <ul class="unstyled" data-bind="visible: properties.spark_arguments().length > 0, foreach: properties.spark_arguments">
-          <li>
-            <input type="text" class="input-xlarge filechooser-input seventy" data-bind="filechooser: value, filechooserOptions: globalFilechooserOptions, hdfsAutocomplete: value, attr: { placeholder:  $root.workflow_properties.spark_arguments.help_text }" validate="nonempty"/>
-            <span data-bind='template: { name: "common-fs-link", data: {path: value, with_label: false}}'></span>
-            <a href="#" data-bind="click: function(){ $parent.properties.spark_arguments.remove(this); $(document).trigger('drawArrows') }">
-              <i class="fa fa-minus"></i>
-            </a>
-          </li>
-       </ul>
-       <em data-bind="visible: properties.spark_arguments().length == 0">${ _('No arguments defined.') }</em>
+
+        <div class="row-fluid">
+          <div>
+            <ul class="unstyled white sortable-arguments" data-bind="visible: properties.spark_arguments().length > 0, sortable: { data: properties.spark_arguments, options: { axis: 'y', containment: 'parent' }}">
+              <li>
+                <span class="muted move-widget">
+                  <i class="fa fa-arrows"></i>
+                </span>
+                <input type="text" class="input-xlarge filechooser-input seventy" data-bind="filechooser: value, filechooserOptions: globalFilechooserOptions, hdfsAutocomplete: value, attr: { placeholder:  $root.workflow_properties.spark_arguments.help_text }" validate="nonempty"/>
+                <span data-bind='template: { name: "common-fs-link", data: {path: value, with_label: false}}'></span>
+                <a href="#" data-bind="click: function(){ $parent.properties.spark_arguments.remove(this); $(document).trigger('drawArrows') }">
+                  <i class="fa fa-minus"></i>
+                </a>
+              </li>
+            </ul>
+            <em data-bind="visible: properties.spark_arguments().length == 0">${ _('No arguments defined.') }</em>
+          </div>
+          <div class="span6" data-bind="template: { name: 'common-properties-files' }"></div>
+        </div>
       </div>
     </div>
 
@@ -1794,8 +1806,11 @@
             <span data-bind="text: $root.workflow_properties.distcp_parameters.label"></span> <i class="fa fa-plus"></i>
           </a>
         </h6>
-        <ul data-bind="foreach: properties.distcp_parameters" class="unstyled">
+        <ul class="unstyled white sortable-arguments" data-bind="sortable: { data: properties.distcp_parameters, options: { axis: 'y', containment: 'parent' }}">
           <li>
+            <span class="muted move-widget">
+              <i class="fa fa-arrows"></i>
+            </span>
             <input type="text" class="input-xlarge filechooser-input seventy" data-bind="filechooser: value, filechooserOptions: globalFilechooserOptions, hdfsAutocomplete: value, value: value, attr: { placeholder: $root.workflow_properties.distcp_parameters.help_text }" validate="nonempty"/>
             <span data-bind='template: { name: "common-fs-link", data: {path: value(), with_label: false} }, visible: value().length > 0'></span>
             <a href="#" data-bind="click: function(){ $parent.properties.distcp_parameters.remove(this);  }">

@@ -84,7 +84,7 @@ ${ assist.assistPanel() }
     <!-- ko if: editingTable -->
       <!-- ko with: table -->
       <li class="editable-breadcrumb-input">
-        <input type="text" data-bind="hivechooser: {data: name, database: $parent.name, skipColumns: true, onChange: function(val){ $parent.setTableByName(val); $parent.editingTable(false); }}" autocomplete="off" />
+        <input type="text" data-bind="hivechooser: {data: name, database: $parent.name, skipColumns: true, searchEverywhere: true, onChange: function(val){ $parent.setTableByName(val); $parent.editingTable(false); }}" autocomplete="off" />
       </li>
       <!-- /ko -->
     <!-- /ko -->
@@ -110,7 +110,7 @@ ${ assist.assistPanel() }
         <th width="50%">${_('Comment')}</th>
       </tr>
       </thead>
-      <tbody data-bind="hueach: {data: $data, itemHeight: 29, scrollable: '.right-panel', scrollableOffset: 200, disableHueEachRowCount: 5}">
+      <tbody data-bind="hueach: {data: $data, itemHeight: 29, scrollable: '.right-panel', scrollableOffset: 200, disableHueEachRowCount: 5, scrollUp: true}">
         <tr>
           ## start at 1
           <td data-bind="text: $index()+$indexOffset()+1"></td>
@@ -337,7 +337,7 @@ ${ assist.assistPanel() }
       <th>${ _('Database Name') }</th>
     </tr>
     </thead>
-    <tbody data-bind="hueach: {data: filteredDatabases, itemHeight: 29, scrollable: '.right-panel', scrollableOffset: 145}">
+    <tbody data-bind="hueach: {data: filteredDatabases, itemHeight: 29, scrollable: '.right-panel', scrollableOffset: 145, scrollUp: true}">
     <tr>
       <td width="1%" style="text-align: center">
         <div class="hueCheckbox fa" data-bind="multiCheck: '#databasesTable', value: $data, hueChecked: $parent.selectedDatabases"></div>
@@ -426,22 +426,6 @@ ${ assist.assistPanel() }
           </button>
           % if has_write_access:
             <button id="dropBtn" class="btn toolbarBtn" title="${_('Delete the selected tables')}" data-bind="click: function () { $('#dropTable').modal('show'); }, disable: selectedTables().length === 0"><i class="fa fa-times"></i>  ${_('Drop')}</button>
-            <div id="dropTable" class="modal hide fade">
-              <form data-bind="attr: { 'action': '/metastore/tables/drop/' + name }" method="POST">
-                ${ csrf_token(request) | n,unicode }
-                <div class="modal-header">
-                  <a href="#" class="close" data-dismiss="modal">&times;</a>
-                  <h3 id="dropTableMessage">${_('Do you really want to drop the selected table(s)?')}</h3>
-                </div>
-                <div class="modal-footer">
-                  <input type="button" class="btn" data-dismiss="modal" value="${_('No')}" />
-                  <input type="submit" class="btn btn-danger" value="${_('Yes')}"/>
-                </div>
-                <!-- ko foreach: selectedTables -->
-                <input type="hidden" name="table_selection" data-bind="value: name" />
-                <!-- /ko -->
-              </form>
-            </div>
           % endif
           <!-- ko if: $root.optimizerEnabled  -->
           &nbsp;
@@ -466,7 +450,7 @@ ${ assist.assistPanel() }
             <th width="1%">${ _('Type') }</th>
           </tr>
           </thead>
-          <tbody data-bind="hueach: {data: filteredTables, itemHeight: 29, scrollable: '.right-panel', scrollableOffset: 277}">
+          <tbody data-bind="hueach: {data: filteredTables, itemHeight: 29, scrollable: '.right-panel', scrollableOffset: 277, scrollUp: true}">
             <tr>
               <td width="1%" style="text-align: center">
                 <div class="hueCheckbox fa" data-bind="multiCheck: '#tablesTable', value: $data, hueChecked: $parent.selectedTables"></div>
@@ -524,6 +508,25 @@ ${ assist.assistPanel() }
         <span data-bind="visible: filteredTables().length === 0, css: {'margin-left-10': tables().length > 0}" style="font-style: italic; display: none;">${_('No tables found.')}</span>
       </div>
     </div>
+
+  % if has_write_access:
+    <div id="dropTable" class="modal hide fade">
+      <form data-bind="attr: { 'action': '/metastore/tables/drop/' + name }" method="POST">
+        ${ csrf_token(request) | n,unicode }
+        <div class="modal-header">
+          <a href="#" class="close" data-dismiss="modal">&times;</a>
+          <h3 id="dropTableMessage">${_('Do you really want to drop the selected table(s)?')}</h3>
+        </div>
+        <div class="modal-footer">
+          <input type="button" class="btn" data-dismiss="modal" value="${_('No')}" />
+          <input type="submit" class="btn btn-danger" value="${_('Yes')}"/>
+        </div>
+        <!-- ko foreach: selectedTables -->
+        <input type="hidden" name="table_selection" data-bind="value: name" />
+        <!-- /ko -->
+      </form>
+    </div>
+  % endif
 </script>
 
 <script type="text/html" id="metastore-databases-parameters">
@@ -680,7 +683,7 @@ ${ assist.assistPanel() }
 </script>
 
 <script type="text/html" id="metastore-columns-tab">
-  <!-- ko with: columns -->
+  <!-- ko with: filteredColumns -->
   <!-- ko template: "metastore-columns-table" --><!-- /ko -->
   <!-- /ko -->
 </script>
@@ -803,6 +806,11 @@ ${ assist.assistPanel() }
         <li class="pull-right"><a class="pointer" data-bind="click: function () { location.href = '/notebook/browse/' + $root.database().name + '/' + $root.database().table().name; }"><i class="fa fa-external-link"></i> ${ _('Open in editor') }</a>
       <!-- /ko -->
     <!-- /ko -->
+    <!-- ko if: $root.currentTab() == 'table-columns' -->
+    <li class="pull-right">
+      <input class="input-xlarge search-query margin-left-10" type="text" placeholder="${ _('Search for a column...') }" data-bind="clearable: columnQuery, value: columnQuery, valueUpdate: 'afterkeydown'"/>
+    </li>
+    <!-- /ko -->
   </ul>
 
   <div class="tab-content margin-top-10" style="border: none; overflow: hidden">
@@ -816,7 +824,6 @@ ${ assist.assistPanel() }
       <!-- ko if: $root.currentTab() == 'table-columns' -->
       <!-- ko template: 'metastore-columns-tab' --><!-- /ko -->
       <!-- /ko -->
-
     </div>
 
     <div class="tab-pane" id="partitions">

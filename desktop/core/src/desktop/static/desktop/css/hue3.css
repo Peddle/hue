@@ -2048,7 +2048,7 @@ input.no-margin, select.no-margin {
 }
 
 .no-margin-top {
-  margin-top: 0;
+  margin-top: 0!important;
 }
 
 .no-margin-right {
@@ -2056,7 +2056,7 @@ input.no-margin, select.no-margin {
 }
 
 .no-margin-bottom {
-  margin-bottom: 0;
+  margin-bottom: 0!important;
 }
 
 .badge-left {
