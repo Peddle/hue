@@ -1,0 +1,47 @@
+<workflow-app name="JavaIndexerTest" xmlns="uri:oozie:workflow:0.5">
+    <start to="java-212a"/>
+    <kill name="Kill">
+        <message>Action failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
+    </kill>
+    <kill name="Kill2">
+        <message>FS Delete failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
+    </kill>
+    <action name="java-212a">
+        <java>
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <configuration>
+                <property>
+                    <name>collectionName</name>
+                    <value>test</value>
+                </property>
+            </configuration>
+            <main-class>org.apache.solr.hadoop.MapReduceIndexerTool</main-class>
+            <arg>--morphline-file</arg>
+            <arg>morphline.conf</arg>
+            <arg>--output-dir</arg>
+            <arg>hdfs://hue-aaron-1.vpc.cloudera.com:8020/var/tmp/load</arg>
+            <arg>--log4j</arg>
+            <arg>log4j.properties</arg>
+            <arg>--verbose</arg>
+            <arg>--go-live</arg>
+            <arg>--zk-host</arg>
+            <arg>hue-aaron-1.vpc.cloudera.com:2181/solr</arg>
+            <arg>--collection</arg>
+            <arg>${collectionName}</arg>
+            <arg>hdfs://hue-aaron-1.vpc.cloudera.com:8020/${file_path}</arg>
+            <file>morphline.conf#morphline.conf</file>
+            <file>/user/hue/log4j.properties#log4j.properties</file>
+        </java>
+        <ok to="clean-up"/>
+        <error to="Kill"/>
+    </action>
+    <action name="clean-up">
+      <fs>
+        <delete path="${workSpacePath}"/>
+      </fs>
+      <ok to="End"/>
+      <error to="Kill2"/>
+    </action>
+    <end name="End"/>
+</workflow-app>
