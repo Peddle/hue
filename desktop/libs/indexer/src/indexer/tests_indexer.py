@@ -1,9 +1,27 @@
-from nose.tools import assert_equal
+# Licensed to Cloudera, Inc. under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  Cloudera, Inc. licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.from nose.tools import assert_equal
 import StringIO
 import logging
+
+from nose.tools import assert_equal
+
+from hadoop import cluster 
+
 from indexer.smart_indexer import Indexer
 from indexer.controller import CollectionManagerController
-from hadoop import cluster # used for integration test
 
 LOG = logging.getLogger(__name__)
 
@@ -18,7 +36,7 @@ class IndexerTest():
     stream = StringIO.StringIO(IndexerTest.simpleCSVString)
 
     guessed_format = Indexer().guess_format({'file': stream})
-    
+
     file_format = guessed_format['format']
     fields = guessed_format['columns']
 
@@ -63,7 +81,7 @@ class IndexerTest():
 
     # guess the format of the file
     format_ = indexer.guess_format({'file': stream})
-    
+
     # find a field name available to use for the record's uuid
     unique_field = indexer.get_uuid_name(format_)
 

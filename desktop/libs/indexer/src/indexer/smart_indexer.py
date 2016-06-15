@@ -1,22 +1,36 @@
-import logging
+# Licensed to Cloudera, Inc. under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  Cloudera, Inc. licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.import logging
 import os
 import csv
+import uuid
+
 from mako.template import Template
+
 from hadoop import cluster
+
 from liboozie.oozie_api import get_oozie
 from liboozie.submission2 import Submission
-import uuid
+
 from indexer import conf
-
-
-LOG = logging.getLogger(__name__)
-
 
 class Indexer(object):
   # TODO: This oozie job code shouldn't be in the indexer. What's a better spot for it?
   def _upload_workspace(self, morphline):
     index_uuid = uuid.uuid4()
-    
+
     hdfs_workspace_path = "/var/tmp/indexer_workspace_%s" % (index_uuid)
     hdfs_morphline_path = os.path.join(hdfs_workspace_path, "morphline.conf")
     hdfs_workflow_path = os.path.join(hdfs_workspace_path, "workflow.xml")
@@ -24,7 +38,7 @@ class Indexer(object):
     workflow_template_path = os.path.join(conf.CONFIG_OOZIE_WORKSPACE_PATH.get(), "workflow.xml")
 
     fs = cluster.get_hdfs()
-    
+
     # create workspace on hdfs
     fs.mkdir(hdfs_workspace_path)
     fs.create(hdfs_morphline_path, data=morphline)
@@ -55,7 +69,6 @@ class Indexer(object):
 
     oozie.job_control(jobid, "start")
 
-
   def run_morphline(self, collection_name, morphline, input_path):
     workspace_path = self._upload_workspace(morphline)
 
@@ -66,24 +79,22 @@ class Indexer(object):
     Input:
     data: {'type': 'file', 'path': '/user/hue/logs.csv'}
     Output:
-    {'format': 
+    {'format':
       {
-        type: 'csv', 
-        fieldSeparator : ",", 
-        recordSeparator: '\n', 
+        type: 'csv',
+        fieldSeparator : ",",
+        recordSeparator: '\n',
         quoteChar : "\""
-      }, 
-      'columns': 
+      },
+      'columns':
         [
-          {name: business_id, type: string}, 
-          {name: cool, type: integer}, 
+          {name: business_id, type: string},
+          {name: cool, type: integer},
           {name: date, type: date}
           ]
-    } 
+    }
     """
     file_format = FileFormat.get_instance(data['file'])
-
-
     return dict(file_format)
 
   def get_uuid_name(self, format_):
@@ -124,9 +135,9 @@ class Indexer(object):
         'country_code': {'replace': {'FRA': 'FR, 'CAN': 'CA'..}}
         'ip': {'geoIP': }
       ]
-    } 
+    }
     Output:
-    Morphline content 'SOLR_LOCATOR : { ...}' 
+    Morphline content 'SOLR_LOCATOR : { ...}'
     """
 
     properties = {
@@ -145,7 +156,6 @@ class Indexer(object):
     morphline_template_path = os.path.join(oozie_workspace, "morphline_template.conf")
 
     return Template(filename=morphline_template_path).render(**properties)
-
 
 class Field(object):
   TYPE_PRIORITY = [
@@ -183,7 +193,7 @@ class Field(object):
   @staticmethod
   def _pick_best(types):
     types = set(types)
-   
+
     for field in Field.TYPE_PRIORITY:
       if field in types:
         return field
@@ -197,11 +207,9 @@ class Field(object):
   def name(self):
     return self._name
 
-
   @property
   def field_type(self):
     return self._field_type
-  
 
   def __iter__(self):
     return {'name': self.name, 'type': self.field_type}.iteritems()
@@ -243,19 +251,19 @@ class CSVType(FileFormat):
   @property
   def fields(self):
     return self._fields
-  
+
   @property
   def delimiter(self):
     return self._dialect.delimiter
-  
+
   @property
   def line_terminator(self):
     return self._dialect.lineterminator
-  
+
   @property
   def quote_char(self):
     return self._dialect.quotechar
-  
+
   @property
   def format_(self):
     return {
@@ -270,11 +278,11 @@ class CSVType(FileFormat):
     sniffer = csv.Sniffer()
     dialect = sniffer.sniff(sample)
     has_header = sniffer.has_header(sample)
-
     return dialect, has_header
 
   def _guess_field_types(self, sample_rows):
     guesses = []
+
     for i in xrange(len(sample_rows[0])):
       samples = [sample_row[i] for sample_row in sample_rows]
       guess = Field.guess_type(samples)
@@ -282,26 +290,41 @@ class CSVType(FileFormat):
 
     return guesses
 
-  def _guess_fields(self, sample):
-    reader = csv.reader(sample.splitlines(), delimiter=self.delimiter, quotechar=self.quote_char)
+  def _get_sample_reader(self, sample):
+    return csv.reader(sample.splitlines(), delimiter=self.delimiter, quotechar=self.quote_char)
+
+  def _guess_field_names(self, sample):
+    reader = self._get_sample_reader(sample)
 
     first_row = reader.next()
-    sample_rows = []
 
     if self._has_header:
       header = first_row
     else:
       header = ["field_%d" % (i+1) for i in range(len(first_row))]
-      sample_rows += [first_row]
 
+    return header
+
+  def _get_sample_rows(self, sample):
     NUM_SAMPLES = 5
+    sample_rows = []
+    reader = self._get_sample_reader(sample)
 
-    while len(sample_rows) < NUM_SAMPLES:
+    # skip first line if it's a header
+    if self._has_header:
+      reader.next()
+
+    for _ in range(NUM_SAMPLES):
       try:
         sample_rows += [reader.next()]
       except StopIteration:
         break
 
+    return sample_rows
+
+  def _guess_fields(self, sample):
+    header = self._guess_field_names(sample)
+    sample_rows = self._get_sample_rows(sample)
     types = self._guess_field_types(sample_rows)
 
     fields = [Field(header[i], types[i]) for i in range(len(header))]
