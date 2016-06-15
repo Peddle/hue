@@ -1,46 +1,65 @@
-import json
 import logging
+import os
+import csv
 from mako.template import Template
 from hadoop import cluster
 from liboozie.oozie_api import get_oozie
 from liboozie.submission2 import Submission
+import uuid
+from indexer import conf
+
 
 LOG = logging.getLogger(__name__)
 
 
-
 class Indexer(object):
-  def run_morphline(self, collection_name, morphline, input_path):
+  # TODO: This oozie job code shouldn't be in the indexer. What's a better spot for it?
+  def _upload_workspace(self, morphline):
+    index_uuid = uuid.uuid4()
+    
+    hdfs_workspace_path = "/var/tmp/indexer_workspace_%s" % (index_uuid)
+    hdfs_morphline_path = os.path.join(hdfs_workspace_path, "morphline.conf")
+    hdfs_workflow_path = os.path.join(hdfs_workspace_path, "workflow.xml")
+
+    workflow_template_path = os.path.join(conf.CONFIG_OOZIE_WORKSPACE_PATH.get(), "workflow.xml")
+
     fs = cluster.get_hdfs()
+    
+    # create workspace on hdfs
+    fs.mkdir(hdfs_workspace_path)
+    fs.create(hdfs_morphline_path, data=morphline)
+    fs.create(hdfs_workflow_path, data=open(workflow_template_path).read())
 
-    LOG.info(morphline)
+    return hdfs_workspace_path
 
-    # TODO put this in tmp and clean up after
-    fs.create("/user/hue/uploaded_morphline.conf",
-      overwrite=True,
-      data=morphline
-      )
+  def _schedule_oozie_job(self, workspace_path, collection_name, input_path):
+    oozie = get_oozie("hue", api_version="v2")
 
-    oozie = get_oozie("admin", api_version="v2")
-
-    # TODO these shouldn't be hardcoded
     properties = {
       "dryrun":"False",
       "hue-id-w":"55",
+      # TODO this shouldn't be hard coded
       "jobTracker":"hue-aaron-1.vpc.cloudera.com:8032",
+      # TODO this shouldn't be hard coded
       "nameNode":"hdfs://hue-aaron-1.vpc.cloudera.com:8020",
-      "oozie.use.system.libpath":"True",
+      # TODO this shouldn't be hard coded
+      "oozie.libpath":"/user/hue/smart_indexer_lib",
       "security_enabled":"False",
       "collectionName":collection_name,
-      "file_path":input_path
+      "file_path":input_path,
+      "workSpacePath":workspace_path
     }
-    workspace = "hdfs://hue-aaron-1.vpc.cloudera.com:8020/user/hue/hue_smart_index_workspace"
+    workspace = "hdfs://hue-aaron-1.vpc.cloudera.com:8020" + workspace_path
 
-    jobid = oozie.submit_workflow(
-      workspace, 
-      properties)
+    jobid = oozie.submit_workflow(workspace, properties)
 
     oozie.job_control(jobid, "start")
+
+
+  def run_morphline(self, collection_name, morphline, input_path):
+    workspace_path = self._upload_workspace(morphline)
+
+    self._schedule_oozie_job(workspace_path, collection_name, input_path)
 
   def guess_format(self, data):
     """
@@ -62,7 +81,8 @@ class Indexer(object):
           ]
     } 
     """
-    file_format = FileFormat(data['file'])
+    file_format = FileFormat.get_instance(data['file'])
+
 
     return dict(file_format)
 
@@ -76,27 +96,6 @@ class Indexer(object):
 
     return base_name
 
-  def generate_solr_schema(self, data):
-    # TODO: schema should be based off of user input. Why read from path again?
-    """
-    Input: {'columns': [{name: business_id, type: string}, {name: cool, type: integer}, {name: date, type: date}]}
-    data: {'type': 'file', 'path': '/user/hue/logs.csv'}
-    Output:
-    schema.xml
-    default field 'df'
-    """
-
-    """
-    SchemaBuilder
-    """
-
-    # Load schema
-    schemaTemplate =  Template(filename="./desktop/libs/indexer/src/indexer/templates/schema.mako")
-
-
-    # TODO, what to do with unique key?
-    return schemaTemplate.render(fields=data['columns'])  
-
   @staticmethod
   def _format_character(string):
     string = string.replace('\\', '\\\\')
@@ -109,7 +108,7 @@ class Indexer(object):
   def _get_regex_for_type(type_):
     regexes = {
       "string":".+",
-      "int": "(?:[+-]?(?:[0-9]+))",
+      "int": "(?:[+-]?(?:[0-9]+))", #TODO: differentiate between ints and longs
       "long": "(?:[+-]?(?:[0-9]+))",
       "double": "(?<![0-9.+-])(?>[+-]?(?:(?:[0-9]+(?:\\.[0-9]+)?)|(?:\\.[0-9]+)))"
     }
@@ -129,33 +128,70 @@ class Indexer(object):
     Output:
     Morphline content 'SOLR_LOCATOR : { ...}' 
     """
-    # TODO what happens if there is a space in a field name? is that allowed by the spec? 
-      # if so how does mako handle it?
-    # TODO use conf.py in indexer to (indexer.conf) to store the file location
-    return Template(filename="./desktop/libs/indexer/src/indexer/templates/morphline_template.conf").render(
-      collection_name=collection_name,
-      fields=data['columns'],
-      format_character=Indexer._format_character,
-      uuid_name = uuid_name,
-      get_regex=Indexer._get_regex_for_type,
-      format=data['format'])
-    
-  def generate_indexing_job(self, data, morphline):
-    """
-    Input:
-    data: hue, 'SOLR_LOCATOR : { ...}
-    Output:
-    Oozie workflow
-    """
 
-    pass
+    properties = {
+      "collection_name":collection_name,
+      "fields":data['columns'],
+      "format_character":Indexer._format_character,
+      "uuid_name" : uuid_name,
+      "get_regex":Indexer._get_regex_for_type,
+      "format":data['format'],
+      # TODO this shouldn't be hardcoded
+      "zk_host":"127.0.0.1:2181/solr"
+    }
 
-# TODO: is using a field class over desigining?
+    oozie_workspace = conf.CONFIG_OOZIE_WORKSPACE_PATH.get()
+
+    morphline_template_path = os.path.join(oozie_workspace, "morphline_template.conf")
+
+    return Template(filename=morphline_template_path).render(**properties)
+
+
 class Field(object):
+  TYPE_PRIORITY = [
+    'string',
+    'double',
+    'long',
+    'int'
+  ]
+
+  @staticmethod
+  def guess_type(samples):
+    guesses = [Field._guess_field_type(sample) for sample in samples]
+
+    return Field._pick_best(guesses)
+
+  @staticmethod
+  def _guess_field_type(field):
+    type_ = "string"
+
+    try:
+      num = int(field)
+      if isinstance(num, int):
+        type_ = "int"
+      elif isinstance(num, long):
+        type_ = "long"
+    except Exception:
+      try:
+        num = float(field)
+        type_ = "double"
+      except Exception:
+        pass
+
+    return type_
+
+  @staticmethod
+  def _pick_best(types):
+    types = set(types)
+   
+    for field in Field.TYPE_PRIORITY:
+      if field in types:
+        return field
+    return "string"
+
   def __init__(self, name, field_type):
     self._name = name
     self._field_type = field_type
-
 
   @property
   def name(self):
@@ -170,14 +206,30 @@ class Field(object):
   def __iter__(self):
     return {'name': self.name, 'type': self.field_type}.iteritems()
 
-import csv
+class FileFormat(object):
+  @staticmethod
+  def get_instance(file_stream):
+    return CSVType(file_stream)
 
-class FileType(object):
   def __init__(self):
     pass
 
+  def format_(self):
+    pass
 
-class CSVType(FileType):
+  @property
+  def fields(self):
+    return []
+
+  def __iter__(self):
+    obj = {}
+
+    obj['format'] = self.format_
+    obj['columns'] = [dict(field) for field in self.fields]
+
+    return obj.iteritems()
+
+class CSVType(FileFormat):
   def __init__(self, file_stream):
     file_stream.seek(0)
     sample = file_stream.read(1024*1024)
@@ -185,6 +237,8 @@ class CSVType(FileType):
 
     self._dialect, self._has_header = self._guess_dialect(sample)
     self._fields = self._guess_fields(sample)
+
+    super(CSVType, self).__init__()
 
   @property
   def fields(self):
@@ -202,76 +256,47 @@ class CSVType(FileType):
   def quote_char(self):
     return self._dialect.quotechar
   
+  @property
+  def format_(self):
+    return {
+      "type":"csv",
+      "fieldSeparator":self.delimiter,
+      "recordSeparator":self.line_terminator,
+      "quoteChar":self.quote_char,
+      "hasHeader":self._has_header
+    }
 
   def _guess_dialect(self, sample):
-    # TODO: put some thought into how much to sniff
     sniffer = csv.Sniffer()
     dialect = sniffer.sniff(sample)
     has_header = sniffer.has_header(sample)
 
-    # TODO: will probably want to return more information than just the quotechar and the delimiter
-    # TODO: why not just store dialect object?
     return dialect, has_header
 
-  def _guess_field_type(self, field):
-    type_ = "string"
-
-    try:
-      num = int(field)
-
-      if isinstance(num, int):
-        type_ = "int"
-      elif isinstance(num, long):
-        type_ = "long"
-    except Exception:
-      try:
-        num = float(field)
-        type_ = "double"
-      except Exception:
-        pass
-
-    return type_
-
-  def _pick_best(self, types):
-    if "string" in types:
-      return "string"
-    elif "double" in types:
-      return "double"
-    elif "long" in types:
-      return "long"
-    else:
-      return "int"
-
   def _guess_field_types(self, sample_rows):
-    all_guesses = [set() for _ in range(len(sample_rows[0]))]
+    guesses = []
+    for i in xrange(len(sample_rows[0])):
+      samples = [sample_row[i] for sample_row in sample_rows]
+      guess = Field.guess_type(samples)
+      guesses.append(guess)
 
-    for row in sample_rows:
-      row_guesses = [self._guess_field_type(col) for col in row]
-
-      for col in range(len(row_guesses)):
-        all_guesses[col].add(row_guesses[col])
-
-    return [self._pick_best(types) for types in all_guesses]
+    return guesses
 
   def _guess_fields(self, sample):
     reader = csv.reader(sample.splitlines(), delimiter=self.delimiter, quotechar=self.quote_char)
 
     first_row = reader.next()
-
-
-    header = first_row if self._has_header else [\
-      "field_%d" % (i+1)\
-      for i in range(len(first_row))]
-
-    # TODO: keep first_row or lazily throw away?
-    # TODO: put some thought into the number of sample rows
-    # TODO: what if the csv has less than number of sample rows wanted
-    # sample_rows = [reader.next() for i in range(5)]
-
     sample_rows = []
-    num_rows_needed = 5 - 0 if self._has_header else 1
 
-    for i in range(num_rows_needed):
+    if self._has_header:
+      header = first_row
+    else:
+      header = ["field_%d" % (i+1) for i in range(len(first_row))]
+      sample_rows += [first_row]
+
+    NUM_SAMPLES = 5
+
+    while len(sample_rows) < NUM_SAMPLES:
       try:
         sample_rows += [reader.next()]
       except StopIteration:
@@ -279,45 +304,6 @@ class CSVType(FileType):
 
     types = self._guess_field_types(sample_rows)
 
-    # TODO: replace this with elegant error handling
-    assert len(header) == len(types)
-
     fields = [Field(header[i], types[i]) for i in range(len(header))]
 
     return fields
-
-  def __iter__(self):
-    return {
-      "type":"csv",
-      "fieldSeparator":self.delimiter,
-      "recordSeparator":self.line_terminator,
-      "quoteChar":self.quote_char,
-      "hasHeader":self._has_header
-    }.iteritems()
-
-# TODO: is this class even necessary?
-class FileFormat(object):
-  def __init__(self, file):
-    self._file = file
-    self._file_type = self._guess_file_type()
-
-
-
-  def _guess_file_type(self):
-    # TODO: actually guess the file type and don't just assume CSV
-    return CSVType(self._file)
-
-
-  def fields(self):
-    return self._file_type.fields
-
-
-  def __iter__(self):
-    obj = {}
-
-    obj['format'] = dict(self._file_type)
-    obj['columns'] = [dict(field) for field in self.fields()]
-
-
-    return obj.iteritems()
-
