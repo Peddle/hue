@@ -17,6 +17,8 @@
 
 import logging
 
+from django.utils.translation import ugettext as _
+
 from desktop.lib.exceptions_renderable import PopupException
 from desktop.lib.paginator import Paginator
 from desktop.lib.rest.http_client import RestException
@@ -242,6 +244,8 @@ class YarnApi(JobBrowserApi):
         # The MapReduce API only returns JSON when the application is in a RUNNING state
         elif app['state'] in ('NEW', 'SUBMITTED', 'RUNNING') and app['applicationType'] == 'MAPREDUCE':
           resp = self.mapreduce_api.job(self.user, job_id)
+          if not isinstance(resp, dict):
+            raise PopupException(_('Mapreduce Proxy API did not return JSON response, check if the job is running.'))
           job = YarnJob(self.mapreduce_api, resp['job'])
         else:
           job = Application(app, self.resource_manager_api)
@@ -257,6 +261,21 @@ class YarnApi(JobBrowserApi):
       raise PopupException('Job %s could not be found: %s' % (jobid, e), detail=e)
 
     return job
+
+  def get_application(self, jobid):
+    app = None
+    app_id = jobid.replace('job', 'application')
+
+    try:
+      app = self.resource_manager_api.app(app_id)['app']
+    except RestException, e:
+      raise PopupException(_('Job %s could not be found in Resource Manager: %s') % (jobid, e), detail=e)
+    except ApplicationNotRunning, e:
+      raise PopupException(_('Application is not running: %s') % e, detail=e)
+    except Exception, e:
+      raise PopupException(_('Job %s could not be found: %s') % (jobid, e), detail=e)
+
+    return app
 
   def get_tasks(self, jobid, **filters):
     filters.pop('pagenum')

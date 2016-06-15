@@ -357,7 +357,21 @@
 
     self.loadingDetails = ko.observable(false);
     self.loadingColumns = ko.observable(false);
+    self.columnQuery = ko.observable('').extend({rateLimit: 150});
     self.columns = ko.observableArray();
+    self.filteredColumns = ko.computed(function () {
+      var returned = self.columns();
+      if (self.columnQuery() !== '') {
+        returned = $.grep(self.columns(), function (column) {
+          return column.name().toLowerCase().indexOf(self.columnQuery()) > -1
+            || (column.comment() && column.comment().toLowerCase().indexOf(self.columnQuery()) > -1);
+        });
+      }
+      return returned.sort(function (a, b) {
+        return a.name().toLowerCase().localeCompare(b.name().toLowerCase());
+      });
+    });
+
     self.favouriteColumns = ko.observableArray();
     self.samples = new MetastoreTableSamples({
       apiHelper: self.apiHelper,
@@ -723,7 +737,6 @@
         if (self.database().table() && self.database().table().name == tableDef.name) {
           return;
         }
-
         var setTableAfterLoad = function () {
           var foundTables = $.grep(self.database().tables(), function (table) {
             return table.name === tableDef.name;
@@ -731,13 +744,21 @@
           if (foundTables.length === 1) {
             self.database().setTable(foundTables[0], callback);
           }
+          else {
+            huePubSub.publish('assist.clear.db.cache', {
+              sourceType: 'hive',
+              clearAll: false,
+              databaseName: self.database().name
+            });
+            self.database().load(setTableAfterLoad, self.optimizerEnabled());
+          }
         };
 
         if (!self.database().loaded()) {
           var doOnce = self.database().loaded.subscribe(function () {
             setTableAfterLoad();
             doOnce.dispose();
-          })
+          });
         } else {
           setTableAfterLoad();
         }

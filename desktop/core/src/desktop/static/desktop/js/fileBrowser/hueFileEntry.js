@@ -365,16 +365,22 @@
     }
   };
 
-  HueFileEntry.prototype.open = function () {
+  HueFileEntry.prototype.open = function (entry, e) {
     var self = this;
     if (self.definition().type === 'directory') {
       self.makeActive();
       huePubSub.publish('file.browser.directory.opened');
-      if (! self.loaded()) {
+      if (!self.loaded()) {
         self.load();
       }
-    } else {
-      window.location.href = self.definition().absoluteUrl;
+    }
+    else {
+      if (e && ((e.which || e.button) !== 1 || (e.ctrlKey || e.shiftKey || e.metaKey))) {
+        window.open(self.definition().absoluteUrl);
+      }
+      else {
+        window.location.href = self.definition().absoluteUrl;
+      }
     }
   };
 
