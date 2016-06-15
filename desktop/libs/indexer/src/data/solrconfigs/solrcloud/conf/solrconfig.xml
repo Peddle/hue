@@ -149,10 +149,11 @@
 
   <!-- To enable dynamic schema REST APIs, use the following for <schemaFactory>: -->
 
-       <schemaFactory class="ManagedIndexSchemaFactory">
+<!-- IF MANAGED-SCHEMA -->
+<!--        <schemaFactory class="ManagedIndexSchemaFactory">
          <bool name="mutable">true</bool>
          <str name="managedSchemaResourceName">managed-schema</str>
-       </schemaFactory>
+       </schemaFactory> -->
 
 <!--
        When ManagedIndexSchemaFactory is specified, Solr will load the schema from
