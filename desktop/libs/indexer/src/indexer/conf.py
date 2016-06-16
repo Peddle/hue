@@ -79,7 +79,7 @@ CONFIG_TEMPLATE_PATH = Config(
   type=str,
   default=os.path.join(os.path.dirname(__file__), '..', 'data', 'solrconfigs'))
 
-CONFIG_OOZIE_WORKSPACE_PATH = Config(
+CONFIG_INDEXING_TEMPLATES_PATH = Config(
   key="config_oozie_workspace_path",
   help=_t("oozie workspace template for indexing:"),
   type=str,

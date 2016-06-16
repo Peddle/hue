@@ -18,7 +18,7 @@ import logging
 
 from nose.tools import assert_equal
 
-from hadoop import cluster 
+from hadoop import cluster
 
 from indexer.smart_indexer import Indexer
 from indexer.controller import CollectionManagerController
@@ -35,7 +35,7 @@ class IndexerTest():
   def test_guess_format(self):
     stream = StringIO.StringIO(IndexerTest.simpleCSVString)
 
-    guessed_format = Indexer().guess_format({'file': stream})
+    guessed_format = Indexer("hue", None).guess_format({'file': stream})
 
     file_format = guessed_format['format']
     fields = guessed_format['columns']
@@ -72,12 +72,16 @@ class IndexerTest():
     assert_equal(expected_fields, fields)
 
   def test_end_to_end(self):
+    fs = cluster.get_hdfs()
     collection_name = "test_collection"
-    indexer = Indexer()
-    input_loc = "/tmp/test2.csv"
+    indexer = Indexer("hue", fs)
+    input_loc = "/tmp/test.csv"
+
+    # upload the test file to hdfs
+    fs.create(input_loc, data=IndexerTest.simpleCSVString, overwrite=True)
 
     # open a filestream for the file on hdfs
-    stream = cluster.get_hdfs().open(input_loc)
+    stream = fs.open(input_loc)
 
     # guess the format of the file
     format_ = indexer.guess_format({'file': stream})
@@ -91,8 +95,10 @@ class IndexerTest():
     schema_fields = [{"name": unique_field, "type": "string"}] + format_['columns']
 
     # create the collection from the specified fields
-    CollectionManagerController("solr").\
-      create_collection(collection_name, schema_fields, unique_key_field=unique_field)
+    collection_manager = CollectionManagerController("test")
+    if collection_manager.collection_exists(collection_name):
+      collection_manager.delete_collection(collection_name, None)
+    collection_manager.create_collection(collection_name, schema_fields, unique_key_field=unique_field)
 
     # index the file
     indexer.run_morphline(collection_name, morphline, input_loc)

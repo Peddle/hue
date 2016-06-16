@@ -16,17 +16,22 @@
 import os
 import csv
 import uuid
+import operator
+import itertools
 
 from mako.template import Template
-
-from hadoop import cluster
 
 from liboozie.oozie_api import get_oozie
 from liboozie.submission2 import Submission
 
-from indexer import conf
+from indexer.conf import CONFIG_INDEXING_TEMPLATES_PATH
+from indexer.conf import zkensemble
 
 class Indexer(object):
+  def __init__(self, username, fs):
+    self.fs = fs
+    self.username = username
+
   # TODO: This oozie job code shouldn't be in the indexer. What's a better spot for it?
   def _upload_workspace(self, morphline):
     index_uuid = uuid.uuid4()
@@ -35,44 +40,47 @@ class Indexer(object):
     hdfs_morphline_path = os.path.join(hdfs_workspace_path, "morphline.conf")
     hdfs_workflow_path = os.path.join(hdfs_workspace_path, "workflow.xml")
 
-    workflow_template_path = os.path.join(conf.CONFIG_OOZIE_WORKSPACE_PATH.get(), "workflow.xml")
+    workflow_template_path = os.path.join(CONFIG_INDEXING_TEMPLATES_PATH.get(), "workflow.xml")
 
-    fs = cluster.get_hdfs()
 
     # create workspace on hdfs
-    fs.mkdir(hdfs_workspace_path)
-    fs.create(hdfs_morphline_path, data=morphline)
-    fs.create(hdfs_workflow_path, data=open(workflow_template_path).read())
+    self.fs.mkdir(hdfs_workspace_path)
+    self.fs.create(hdfs_morphline_path, data=morphline)
+    self.fs.create(hdfs_workflow_path, data=open(workflow_template_path).read())
 
     return hdfs_workspace_path
 
   def _schedule_oozie_job(self, workspace_path, collection_name, input_path):
-    oozie = get_oozie("hue", api_version="v2")
+    oozie = get_oozie(self.username)
 
-    properties = {
-      "dryrun":"False",
-      "hue-id-w":"55",
-      # TODO this shouldn't be hard coded
-      "jobTracker":"hue-aaron-1.vpc.cloudera.com:8032",
-      # TODO this shouldn't be hard coded
-      "nameNode":"hdfs://hue-aaron-1.vpc.cloudera.com:8020",
-      # TODO this shouldn't be hard coded
-      "oozie.libpath":"/user/hue/smart_indexer_lib",
-      "security_enabled":"False",
-      "collectionName":collection_name,
-      "file_path":input_path,
-      "workSpacePath":workspace_path
-    }
     workspace = "hdfs://hue-aaron-1.vpc.cloudera.com:8020" + workspace_path
 
-    jobid = oozie.submit_workflow(workspace, properties)
+    properties = {
+      "dryrun": "False",
+      "zkHost":  zkensemble(),
+      # these libs can be installed from here:
+      # https://drive.google.com/a/cloudera.com/folderview?id=0B1gZoK8Ae1xXc0sxSkpENWJ3WUU&usp=sharing
+      "oozie.libpath": "/tmp/smart_indexer_lib",
+      "security_enabled": "False",
+      "collectionName": collection_name,
+      "filePath": input_path,
+      # TODO this shouldn't be hard coded either
+      "outputDir": "/var/tmp/load",
+      "workspacePath": workspace_path,
+      'oozie.wf.application.path': workspace,
+      'user.name': self.username
+    }
 
-    oozie.job_control(jobid, "start")
+    submission = Submission(self.username, fs=self.fs, properties=properties)
+    job_id = submission.run(workspace_path)
+
+    return job_id
 
   def run_morphline(self, collection_name, morphline, input_path):
     workspace_path = self._upload_workspace(morphline)
 
-    self._schedule_oozie_job(workspace_path, collection_name, input_path)
+    job_id = self._schedule_oozie_job(workspace_path, collection_name, input_path)
+    return job_id
 
   def guess_format(self, data):
     """
@@ -95,7 +103,7 @@ class Indexer(object):
     }
     """
     file_format = FileFormat.get_instance(data['file'])
-    return dict(file_format)
+    return file_format.to_dict()
 
   def get_uuid_name(self, format_):
     base_name = "_uuid"
@@ -148,10 +156,10 @@ class Indexer(object):
       "get_regex":Indexer._get_regex_for_type,
       "format":data['format'],
       # TODO this shouldn't be hardcoded
-      "zk_host":"127.0.0.1:2181/solr"
+      "zk_host": zkensemble()
     }
 
-    oozie_workspace = conf.CONFIG_OOZIE_WORKSPACE_PATH.get()
+    oozie_workspace = CONFIG_INDEXING_TEMPLATES_PATH.get()
 
     morphline_template_path = os.path.join(oozie_workspace, "morphline_template.conf")
 
@@ -165,6 +173,10 @@ class Field(object):
     'int'
   ]
 
+  def __init__(self, name, field_type):
+    self._name = name
+    self._field_type = field_type
+
   @staticmethod
   def guess_type(samples):
     guesses = [Field._guess_field_type(sample) for sample in samples]
@@ -173,6 +185,7 @@ class Field(object):
 
   @staticmethod
   def _guess_field_type(field):
+    # TODO differentiate between text and string
     type_ = "string"
 
     try:
@@ -181,11 +194,11 @@ class Field(object):
         type_ = "int"
       elif isinstance(num, long):
         type_ = "long"
-    except Exception:
+    except ValueError:
       try:
         num = float(field)
         type_ = "double"
-      except Exception:
+      except ValueError:
         pass
 
     return type_
@@ -199,9 +212,6 @@ class Field(object):
         return field
     return "string"
 
-  def __init__(self, name, field_type):
-    self._name = name
-    self._field_type = field_type
 
   @property
   def name(self):
@@ -211,13 +221,13 @@ class Field(object):
   def field_type(self):
     return self._field_type
 
-  def __iter__(self):
-    return {'name': self.name, 'type': self.field_type}.iteritems()
+  def to_dict(self):
+    return {'name': self.name, 'type': self.field_type}
 
 class FileFormat(object):
   @staticmethod
   def get_instance(file_stream):
-    return CSVType(file_stream)
+    return CSVFormat(file_stream)
 
   def __init__(self):
     pass
@@ -229,24 +239,28 @@ class FileFormat(object):
   def fields(self):
     return []
 
-  def __iter__(self):
+  def to_dict(self):
     obj = {}
 
     obj['format'] = self.format_
-    obj['columns'] = [dict(field) for field in self.fields]
+    obj['columns'] = [field.to_dict() for field in self.fields]
 
-    return obj.iteritems()
+    return obj
 
-class CSVType(FileFormat):
+class CSVFormat(FileFormat):
   def __init__(self, file_stream):
     file_stream.seek(0)
-    sample = file_stream.read(1024*1024)
+    sample = file_stream.read(1024*1024*5)
     file_stream.seek(0)
 
     self._dialect, self._has_header = self._guess_dialect(sample)
+
+    self._sample_rows = self._get_sample_rows(sample)
+    self._num_columns = self._guess_num_columns(self._sample_rows)
+
     self._fields = self._guess_fields(sample)
 
-    super(CSVType, self).__init__()
+    super(CSVFormat, self).__init__()
 
   @property
   def fields(self):
@@ -280,15 +294,31 @@ class CSVType(FileFormat):
     has_header = sniffer.has_header(sample)
     return dialect, has_header
 
+  def _guess_num_columns(self, sample_rows):
+    counts = {}
+
+    for row in sample_rows:
+      num_columns = len(row)
+
+      if num_columns not in counts:
+        counts[num_columns] = 0
+      counts[num_columns] += 1
+
+    num_columns_guess = max(counts.iteritems(), key=operator.itemgetter(1))[0]
+    return num_columns_guess
+
   def _guess_field_types(self, sample_rows):
-    guesses = []
+    field_type_guesses = []
 
-    for i in xrange(len(sample_rows[0])):
-      samples = [sample_row[i] for sample_row in sample_rows]
-      guess = Field.guess_type(samples)
-      guesses.append(guess)
+    num_columns = self._num_columns
 
-    return guesses
+    for col in range(num_columns):
+      column_samples = [sample_row[col] for sample_row in sample_rows if len(sample_row) > col]
+
+      field_type_guess = Field.guess_type(column_samples)
+      field_type_guesses.append(field_type_guess)
+
+    return field_type_guesses
 
   def _get_sample_reader(self, sample):
     return csv.reader(sample.splitlines(), delimiter=self.delimiter, quotechar=self.quote_char)
@@ -301,31 +331,22 @@ class CSVType(FileFormat):
     if self._has_header:
       header = first_row
     else:
-      header = ["field_%d" % (i+1) for i in range(len(first_row))]
+      header = ["field_%d" % (i+1) for i in range(self._num_columns)]
 
     return header
 
   def _get_sample_rows(self, sample):
     NUM_SAMPLES = 5
-    sample_rows = []
-    reader = self._get_sample_reader(sample)
 
-    # skip first line if it's a header
-    if self._has_header:
-      reader.next()
+    header_offset = 1 if self._has_header else 0
+    reader = itertools.islice(self._get_sample_reader(sample), header_offset + 1, NUM_SAMPLES + 1)
 
-    for _ in range(NUM_SAMPLES):
-      try:
-        sample_rows += [reader.next()]
-      except StopIteration:
-        break
-
+    sample_rows = list(reader)
     return sample_rows
 
   def _guess_fields(self, sample):
     header = self._guess_field_names(sample)
-    sample_rows = self._get_sample_rows(sample)
-    types = self._guess_field_types(sample_rows)
+    types = self._guess_field_types(self._sample_rows)
 
     fields = [Field(header[i], types[i]) for i in range(len(header))]
 

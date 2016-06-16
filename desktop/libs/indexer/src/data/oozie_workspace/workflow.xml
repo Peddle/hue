@@ -1,9 +1,24 @@
-<workflow-app name="JavaIndexerTest" xmlns="uri:oozie:workflow:0.5">
+<!-- Licensed to Cloudera, Inc. under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  Cloudera, Inc. licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.import logging -->
+<workflow-app name="SolrFileIndexer" xmlns="uri:oozie:workflow:0.5">
     <start to="java-212a"/>
-    <kill name="Kill">
+    <kill name="IndexFailed">
         <message>Action failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
     </kill>
-    <kill name="Kill2">
+    <kill name="CleanupFailed">
         <message>FS Delete failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
     </kill>
     <action name="java-212a">
@@ -20,28 +35,28 @@
             <arg>--morphline-file</arg>
             <arg>morphline.conf</arg>
             <arg>--output-dir</arg>
-            <arg>hdfs://hue-aaron-1.vpc.cloudera.com:8020/var/tmp/load</arg>
+            <arg>${nameNode}${outputDir}</arg>
             <arg>--log4j</arg>
             <arg>log4j.properties</arg>
             <arg>--verbose</arg>
             <arg>--go-live</arg>
             <arg>--zk-host</arg>
-            <arg>hue-aaron-1.vpc.cloudera.com:2181/solr</arg>
+            <arg>${zkHost}</arg>
             <arg>--collection</arg>
             <arg>${collectionName}</arg>
-            <arg>hdfs://hue-aaron-1.vpc.cloudera.com:8020/${file_path}</arg>
+            <arg>${nameNode}${filePath}</arg>
             <file>morphline.conf#morphline.conf</file>
             <file>/user/hue/log4j.properties#log4j.properties</file>
         </java>
         <ok to="clean-up"/>
-        <error to="Kill"/>
+        <error to="IndexFailed"/>
     </action>
     <action name="clean-up">
       <fs>
-        <delete path="${workSpacePath}"/>
+        <delete path="${workspacePath}"/>
       </fs>
       <ok to="End"/>
-      <error to="Kill2"/>
+      <error to="CleanupFailed"/>
     </action>
     <end name="End"/>
 </workflow-app>
