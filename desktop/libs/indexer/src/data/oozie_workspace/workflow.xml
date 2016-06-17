@@ -35,7 +35,7 @@ limitations under the License.import logging -->
             <arg>--morphline-file</arg>
             <arg>morphline.conf</arg>
             <arg>--output-dir</arg>
-            <arg>${nameNode}${outputDir}</arg>
+            <arg>${nameNode}${outputDir}${username}</arg>
             <arg>--log4j</arg>
             <arg>log4j.properties</arg>
             <arg>--verbose</arg>

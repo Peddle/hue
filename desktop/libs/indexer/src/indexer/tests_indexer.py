@@ -27,7 +27,7 @@ LOG = logging.getLogger(__name__)
 
 class IndexerTest():
   simpleCSVString = """id,Rating,Location,Name,Time
-1,5,San Francisco,Good Restauran,t8:30pm
+1,5,San Francisco,Good Restaurant,8:30pm
 2,4,San Mateo,Cafe,11:30am
 3,3,Berkeley,Sauls,2:30pm
 """
@@ -74,7 +74,7 @@ class IndexerTest():
   def test_end_to_end(self):
     fs = cluster.get_hdfs()
     collection_name = "test_collection"
-    indexer = Indexer("hue", fs)
+    indexer = Indexer("test", fs)
     input_loc = "/tmp/test.csv"
 
     # upload the test file to hdfs

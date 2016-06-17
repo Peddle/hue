@@ -44,6 +44,17 @@ def indexes(request):
       'indexes_json': json.dumps(indexes),
   })
 
+def indexer(request):
+  searcher = IndexController(request.user)
+  indexes = searcher.get_indexes()
+  
+  for index in indexes:
+    index['isSelected'] = False
+
+  return render('indexer.mako', request, {
+      'indexes_json': json.dumps(indexes),
+  })
+
 
 def install_examples(request, is_redirect=False):
   result = {'status': -1, 'message': ''}

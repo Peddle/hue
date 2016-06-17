@@ -44,9 +44,10 @@ class Indexer(object):
 
 
     # create workspace on hdfs
-    self.fs.mkdir(hdfs_workspace_path)
-    self.fs.create(hdfs_morphline_path, data=morphline)
-    self.fs.create(hdfs_workflow_path, data=open(workflow_template_path).read())
+    self.fs.do_as_user(self.username,  self.fs.mkdir, hdfs_workspace_path)
+    self.fs.do_as_user(self.username,  self.fs.create, hdfs_morphline_path, data=morphline)
+    self.fs.do_as_user(self.username,  self.fs.create, hdfs_workflow_path, data=open(workflow_template_path).read())
+
 
     return hdfs_workspace_path
 
@@ -58,6 +59,7 @@ class Indexer(object):
     properties = {
       "dryrun": "False",
       "zkHost":  zkensemble(),
+      "hue-id-w": "55",
       # these libs can be installed from here:
       # https://drive.google.com/a/cloudera.com/folderview?id=0B1gZoK8Ae1xXc0sxSkpENWJ3WUU&usp=sharing
       "oozie.libpath": "/tmp/smart_indexer_lib",
@@ -65,9 +67,10 @@ class Indexer(object):
       "collectionName": collection_name,
       "filePath": input_path,
       # TODO this shouldn't be hard coded either
-      "outputDir": "/var/tmp/load",
+      "outputDir": "/var/tmp/load/",
       "workspacePath": workspace_path,
       'oozie.wf.application.path': workspace,
+      'username': self.username,
       'user.name': self.username
     }
 
@@ -120,6 +123,7 @@ class Indexer(object):
     string = string.replace('\\', '\\\\')
     string = string.replace('"', '\\"')
     string = string.replace('\t', '\\t')
+    string = string.replace('\n', '\\n')
 
     return string
 
@@ -232,28 +236,54 @@ class FileFormat(object):
   def __init__(self):
     pass
 
+  @property
   def format_(self):
     pass
 
   @property
+  def sample(self):
+    pass
+  
+
+  @property
   def fields(self):
     return []
+
+  def get_format(self):
+    return self.format_
+
+  def get_fields(self):
+    obj = {}
+
+    obj['columns'] = [field.to_dict() for field in self.fields]
+    obj['sample'] = self.sample
+
+    return obj
 
   def to_dict(self):
     obj = {}
 
     obj['format'] = self.format_
     obj['columns'] = [field.to_dict() for field in self.fields]
+    obj['sample'] = self.sample
 
     return obj
 
 class CSVFormat(FileFormat):
-  def __init__(self, file_stream):
+  def __init__(self, file_stream, format_=None):
     file_stream.seek(0)
-    sample = file_stream.read(1024*1024*5)
+    sample = file_stream.read(1024)
     file_stream.seek(0)
 
-    self._dialect, self._has_header = self._guess_dialect(sample)
+    if format_:
+      self._delimiter = format_["fieldSeparator"]
+      self._line_terminator = format_["recordSeparator"]
+      self._quote_char = format_["quoteChar"]
+    else:
+      dialect, self._has_header = self._guess_dialect(sample)
+      self._delimiter = dialect.delimiter
+      self._line_terminator = dialect.lineterminator
+      self._quote_char = dialect.quotechar
 
     self._sample_rows = self._get_sample_rows(sample)
     self._num_columns = self._guess_num_columns(self._sample_rows)
@@ -263,20 +293,24 @@ class CSVFormat(FileFormat):
     super(CSVFormat, self).__init__()
 
   @property
+  def sample(self):
+    return self._sample_rows
+
+  @property
   def fields(self):
     return self._fields
 
   @property
   def delimiter(self):
-    return self._dialect.delimiter
+    return self._delimiter
 
   @property
   def line_terminator(self):
-    return self._dialect.lineterminator
+    return self._line_terminator
 
   @property
   def quote_char(self):
-    return self._dialect.quotechar
+    return self._quote_char
 
   @property
   def format_(self):
@@ -339,7 +373,7 @@ class CSVFormat(FileFormat):
     NUM_SAMPLES = 5
 
     header_offset = 1 if self._has_header else 0
-    reader = itertools.islice(self._get_sample_reader(sample), header_offset + 1, NUM_SAMPLES + 1)
+    reader = itertools.islice(self._get_sample_reader(sample), header_offset, NUM_SAMPLES + 1)
 
     sample_rows = list(reader)
     return sample_rows
@@ -348,6 +382,11 @@ class CSVFormat(FileFormat):
     header = self._guess_field_names(sample)
     types = self._guess_field_types(self._sample_rows)
 
-    fields = [Field(header[i], types[i]) for i in range(len(header))]
+
+    if len(header) == len(types):
+      fields = [Field(header[i], types[i]) for i in range(len(header))]
+    else:
+      # likely failed to guess correctly
+      fields = []
 
     return fields
