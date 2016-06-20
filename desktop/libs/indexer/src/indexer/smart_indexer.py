@@ -106,7 +106,11 @@ class Indexer(object):
     }
     """
     file_format = FileFormat.get_instance(data['file'])
-    return file_format.to_dict()
+    return file_format.get_format()
+
+  def guess_field_types(self, data):
+    file_format = FileFormat.get_instance(data['file'], data['format'])
+    return file_format.get_fields()
 
   def get_uuid_name(self, format_):
     base_name = "_uuid"
@@ -230,8 +234,8 @@ class Field(object):
 
 class FileFormat(object):
   @staticmethod
-  def get_instance(file_stream):
-    return CSVFormat(file_stream)
+  def get_instance(file_stream, format_=None):
+    return CSVFormat(file_stream, format_)
 
   def __init__(self):
     pass
@@ -272,18 +276,22 @@ class FileFormat(object):
 class CSVFormat(FileFormat):
   def __init__(self, file_stream, format_=None):
     file_stream.seek(0)
-    sample = file_stream.read(1024)
+    sample = file_stream.read(1024*1024*5)
     file_stream.seek(0)
 
     if format_:
-      self._delimiter = format_["fieldSeparator"]
-      self._line_terminator = format_["recordSeparator"]
-      self._quote_char = format_["quoteChar"]
+      self._delimiter = format_["fieldSeparator"].encode('utf-8')
+      self._line_terminator = format_["recordSeparator"].encode('utf-8')
+      self._quote_char = format_["quoteChar"].encode('utf-8')
+      self._has_header = format_["hasHeader"]
     else:
       dialect, self._has_header = self._guess_dialect(sample)
       self._delimiter = dialect.delimiter
       self._line_terminator = dialect.lineterminator
       self._quote_char = dialect.quotechar
+
+    # sniffer insists on \r\n even when \n. This is safer and good enough for a preview
+    self._line_terminator = self._line_terminator.replace("\r\n", "\n")
 
     self._sample_rows = self._get_sample_rows(sample)
     self._num_columns = self._guess_num_columns(self._sample_rows)
@@ -338,7 +346,10 @@ class CSVFormat(FileFormat):
         counts[num_columns] = 0
       counts[num_columns] += 1
 
-    num_columns_guess = max(counts.iteritems(), key=operator.itemgetter(1))[0]
+    if len(counts):
+      num_columns_guess = max(counts.iteritems(), key=operator.itemgetter(1))[0]
+    else:
+      num_columns_guess = 0
     return num_columns_guess
 
   def _guess_field_types(self, sample_rows):
@@ -355,7 +366,10 @@ class CSVFormat(FileFormat):
     return field_type_guesses
 
   def _get_sample_reader(self, sample):
-    return csv.reader(sample.splitlines(), delimiter=self.delimiter, quotechar=self.quote_char)
+    print [self.line_terminator]
+    if self.line_terminator != '\n':
+      sample = sample.replace('\n', '\\n')
+    return csv.reader(sample.split(self.line_terminator), delimiter=self.delimiter, quotechar=self.quote_char)
 
   def _guess_field_names(self, sample):
     reader = self._get_sample_reader(sample)
@@ -382,6 +396,8 @@ class CSVFormat(FileFormat):
     header = self._guess_field_names(sample)
     types = self._guess_field_types(self._sample_rows)
 
+    print header
+    print types
 
     if len(header) == len(types):
       fields = [Field(header[i], types[i]) for i in range(len(header))]

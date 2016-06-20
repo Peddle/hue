@@ -53,6 +53,7 @@ urlpatterns += patterns('indexer.api2',
 
 urlpatterns += patterns('indexer.api3',
   # V3
-   url(r'^api/indexer/guess_format/$', 'guess_format', name='guess_format'),
-   url(r'^api/indexer/index_file/$', 'index_file', name='index_file'),
+  url(r'^api/indexer/guess_format/$', 'guess_format', name='guess_format'),
+  url(r'^api/indexer/index_file/$', 'index_file', name='index_file'),
+  url(r'^api/indexer/guess_field_types/$', 'guess_field_types', name='guess_field_types'),
 )

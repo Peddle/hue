@@ -84,7 +84,12 @@ class IndexerTest():
     stream = fs.open(input_loc)
 
     # guess the format of the file
-    format_ = indexer.guess_format({'file': stream})
+    file_type_format = indexer.guess_format({'file': stream})
+
+    field_types = indexer.guess_field_types({"file":stream, "format": file_type_format})
+
+    format_ = field_types.copy()
+    format_['format'] = file_type_format
 
     # find a field name available to use for the record's uuid
     unique_field = indexer.get_uuid_name(format_)

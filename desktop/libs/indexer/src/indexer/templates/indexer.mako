@@ -38,17 +38,17 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 
     <div class="form-inline">
       <label for="collectionName">${ _('Name') }</label>
-      <input class="form-control" id = "collectionName" data-bind="value: createWizard.wizard().name">
+      <input class="form-control" id = "collectionName" data-bind="value: createWizard.fileFormat().name">
 
       <label for="path">${ _('Path') }</label>
-      <input class="form-control" id = "path" data-bind="value: createWizard.wizard().path">
+      <input class="form-control" id = "path" data-bind="value: createWizard.fileFormat().path">
 
       <a href="javascript:void(0)" class="btn" data-bind="click: createWizard.guessFormat">Guess Format</a>
     </div>
 
 
-    <div data-bind="visible: createWizard.wizard().show">
-      <div data-bind="with: createWizard.wizard().format">
+    <div data-bind="visible: createWizard.fileFormat().show">
+      <div data-bind="with: createWizard.fileFormat().format">
           <h3>File Type: <span data-bind="text: type"></span></h3>
           <h4>Has Header:</h4>
           <input type="checkbox" data-bind="checked: hasHeader">
@@ -62,16 +62,16 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
         </div>
 
         <h3> Fields</h3>
-        <ul data-bind="foreach: createWizard.wizard().columns">
+        <ul data-bind="foreach: createWizard.fileFormat().columns">
           <li>
-            <input data-bind="value: name"></input> - <select data-bind="options: $parent.createWizard.wizard().types, value: type"></select>
+            <input data-bind="value: name"></input> - <select data-bind="options: $parent.createWizard.fileFormat().types, value: type"></select>
           </li>
         </ul>
 
         <h3> Preview</h3>
         <table style="margin:auto;text-align:left">
           <thead>
-            <tr data-bind="foreach: createWizard.wizard().columns">
+            <tr data-bind="foreach: createWizard.fileFormat().columns">
               <th data-bind="text: name" style="padding-right:60px">
               </th>
             </tr>
@@ -94,31 +94,9 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 
       </div>
 
-    <span data-bind="template: { name: 'create-index-from-file', data: createWizard.wizard }"></span>
-
-    <!-- /ko -->
-
     <br/>
-
-<!--     <a href="javascript:void(0)" class="btn" data-bind="visible: createWizard.showCreate, click: createWizard.create">
-      <i class="fa fa-plus-circle"></i> ${ _('Create') }
-    </a>
-    <a href="javascript:void(0)" class="btn" data-bind="click: function() { createWizard.show(false) }">
-      <i class="fa fa-plus-circle"></i> ${ _('Cancel') }
-    </a> -->
   </div>
 </script>
-
-
-<script type="text/html" id="create-index-from-file">
-  <!-- ko if: name() == 'file' -->
-    <div class="snippet-settings">
-
-
-    </div>
-  <!-- /ko -->
-</script>
-
 
 <div class="hueOverlay" data-bind="visible: isLoading">
   <!--[if lte IE 9]>
@@ -136,7 +114,7 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 
 
 <script type="text/javascript" charset="utf-8">
-  var FileWizard = function (vm) {
+  var File_Format = function (vm) {
     var self = this;
 
     self.types = ko.observableArray([
@@ -150,22 +128,18 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     self.show = ko.observable(false);
 
     self.path = ko.observable('/tmp/test.csv');
-    self.format = ko.observable('');
-
     self.format = ko.observable();
     self.columns = ko.observableArray();
   };
 
   var CreateWizard = function (vm) {
     var self = this;
+    var guessFieldTypesXhr;
 
     self.show = ko.observable(true);
     self.showCreate = ko.observable(false);
     
-    self.fileWizard = new FileWizard(vm);
-
-    self.wizard = ko.observable();
-    self.wizard(self.fileWizard);
+    self.fileFormat = ko.observable(new File_Format(vm));
 
     self.sample = ko.observableArray();
 
@@ -173,27 +147,29 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 
     self.indexingStarted = ko.observable(false);
 
+    self.fileFormat().format.subscribe(function(){
+      console.log("call back!");
+      self.fileFormat().format().quoteChar.subscribe(self.guessFieldTypes);
+      self.fileFormat().format().recordSeparator.subscribe(self.guessFieldTypes);
+      self.fileFormat().format().type.subscribe(self.guessFieldTypes);
+      self.fileFormat().format().hasHeader.subscribe(self.guessFieldTypes);
+      self.fileFormat().format().fieldSeparator.subscribe(self.guessFieldTypes);
+
+      self.guessFieldTypes();
+    });
+
     self.guessFormat = function() {
-      console.log(ko.mapping.toJSON(self.wizard));
+      console.log(ko.mapping.toJSON(self.fileFormat));
       viewModel.isLoading(true);
       $.post("${ url('indexer:guess_format') }", {
-        "wizard": ko.mapping.toJSON(self.wizard)
+        "fileFormat": ko.mapping.toJSON(self.fileFormat)
       }, function(resp) {
-        console.log(resp);
-        // self.wizard().format(ko.mapping.fromJS(resp.format));
-        self.wizard().format(ko.mapping.fromJS(resp.format));
-        resp.columns.forEach(function(entry, i, arr){
-          arr[i] = ko.mapping.fromJS(entry);
-        });
-        self.wizard().columns(resp.columns);
-        
-        self.sample(resp.sample);
 
-        self.wizard().show(true);
+        self.fileFormat().format(ko.mapping.fromJS(resp));
+
+        self.fileFormat().show(true);
 
         viewModel.isLoading(false);
-        // self.wizard().sample(resp.data);
-        // self.showCreate(true);
       }).fail(function (xhr, textStatus, errorThrown) {
         $(document).trigger("error", xhr.responseText);
 
@@ -201,8 +177,27 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
       });
     }
 
+    self.guessFieldTypes = function(){
+      console.log("guess field types...");
+      if(guessFieldTypesXhr) guessFieldTypesXhr.abort();
+      guessFieldTypesXhr = $.post("${ url('indexer:guess_field_types') }",{
+        "fileFormat": ko.mapping.toJSON(self.fileFormat)
+      }, function(resp){
+        resp.columns.forEach(function(entry, i, arr){
+          arr[i] = ko.mapping.fromJS(entry);
+        });
+        self.fileFormat().columns(resp.columns);
+
+        self.sample(resp.sample);
+      }).fail(function (xhr, textStatus, errorThrown) {
+        $(document).trigger("error", xhr.responseText);
+
+        viewModel.isLoading(false);
+      });;
+    };
+
     self.indexFile = function() {
-      console.log(ko.mapping.toJSON(self.wizard));
+      console.log(ko.mapping.toJSON(self.fileFormat));
 
       self.indexingStarted(true);
 
@@ -211,10 +206,8 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
       viewModel.isLoading(true);
 
       $.post("${ url('indexer:index_file') }", {
-        "wizard": ko.mapping.toJSON(self.wizard)
+        "fileFormat": ko.mapping.toJSON(self.fileFormat)
       }, function(resp) {
-        // self.wizard().sample(resp.data);
-        console.log("OK!");
         self.showCreate(true);
         self.jobId(resp.jobId);
         console.log(self.jobId());
@@ -223,10 +216,6 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
         $(document).trigger("error", xhr.responseText);
         viewModel.isLoading(false);
       });
-    }
-
-    self.edit = function() {
-      self.show(true);
     }
   };
 
@@ -243,55 +232,6 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
   $(document).ready(function () {
     viewModel = new Editor();
     ko.applyBindings(viewModel);
-
-    var oTable = $("#indexTable").dataTable({
-      "sPaginationType":"bootstrap",
-      'iDisplayLength':50,
-      "bLengthChange":false,
-      "sDom": "<'row'r>t<'row-fluid'<'dt-pages'p><'dt-records'i>>",
-      "aoColumns":[
-        { "bSortable":false },
-        null,
-        null,
-        null,
-        { "bSortable":false },
-      ],
-      "aaSorting":[
-        [1, 'asc' ]
-      ],
-      "oLanguage":{
-        "sEmptyTable":"${_('No data available')}",
-        "sInfo":"${_('Showing _START_ to _END_ of _TOTAL_ entries')}",
-        "sInfoEmpty":"${_('Showing 0 to 0 of 0 entries')}",
-        "sInfoFiltered":"${_('(filtered from _MAX_ total entries)')}",
-        "sZeroRecords":"${_('No matching records')}",
-        "oPaginate":{
-          "sFirst":"${_('First')}",
-          "sLast":"${_('Last')}",
-          "sNext":"${_('Next')}",
-          "sPrevious":"${_('Previous')}"
-        },
-        "bDestroy": true
-      },
-      "fnDrawCallback":function (oSettings) {
-        $("a[data-row-selector='true']").jHueRowSelector();
-      }
-    });
-
-    viewModel.datatable = oTable;
-
-    $("#filterInput").keydown(function (e) {
-      if (e.which == 13) {
-        e.preventDefault();
-        return false;
-      }
-    });
-
-    $("#filterInput").keyup(function () {
-      oTable.fnFilter($(this).val());
-    });
-
-    $("a[data-row-selector='true']").jHueRowSelector();
   });
 </script>
 

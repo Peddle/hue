@@ -39,14 +39,15 @@ def _escape_white_space_characters(s, inverse = False):
   MAPPINGS = {
     "\n":"\\n",
     "\t":"\\t",
-    "\r":"\\r"
+    "\r":"\\r",
+    " ":"\\s"
   }
 
   to = 1 if inverse else 0
   from_ = 0 if inverse else 1
 
   for pair in MAPPINGS.iteritems():
-    s = s.replace(pair[to],pair[from_])
+    s = s.replace(pair[to],pair[from_]).encode('utf-8')
 
   return s
 
@@ -63,40 +64,55 @@ def _convert_format(format_dict, inverse = False):
 
 
 def guess_format(request):
-  wizard = json.loads(request.POST.get('wizard', '{}'))
+  file_format = json.loads(request.POST.get('fileFormat', '{}'))
 
   indexer = Indexer(request.user, request.fs)
 
-  stream = request.fs.open(wizard["path"])
+  stream = request.fs.open(file_format["path"])
 
   format_ = indexer.guess_format({"file":stream})
 
-  _convert_format(format_["format"])
+  _convert_format(format_)
   
   return JsonResponse(format_)
 
-def index_file(request):
-  wizard = json.loads(request.POST.get('wizard', '{}'))
-
-  _convert_format(wizard["format"], inverse = True)
-
-  collection_name = wizard["name"]
+def guess_field_types(request):
+  file_format = json.loads(request.POST.get('fileFormat', '{}'))
 
   indexer = Indexer(request.user, request.fs)
 
-  unique_field = indexer.get_uuid_name(wizard)
+  stream = request.fs.open(file_format["path"])
 
-  schema_fields = [{"name": unique_field, "type": "string"}] + wizard['columns']
-  morphline = indexer.generate_morphline_config(collection_name, wizard, unique_field)
+  print file_format["format"]["fieldSeparator"]
+
+  _convert_format(file_format["format"], inverse = True)
+
+  print file_format["format"]["fieldSeparator"]
+
+  format_ = indexer.guess_field_types({"file":stream, "format":file_format['format']})
+
+  return JsonResponse(format_)
+
+def index_file(request):
+  file_format = json.loads(request.POST.get('fileFormat', '{}'))
+
+  _convert_format(file_format["format"], inverse = True)
+
+  collection_name = file_format["name"]
+
+  indexer = Indexer(request.user, request.fs)
+
+  unique_field = indexer.get_uuid_name(file_format)
+
+  schema_fields = [{"name": unique_field, "type": "string"}] + file_format['columns']
+  morphline = indexer.generate_morphline_config(collection_name, file_format, unique_field)
 
   collection_manager = CollectionManagerController("test")
   if collection_manager.collection_exists(collection_name):
     collection_manager.delete_collection(collection_name, None)
   collection_manager.create_collection(collection_name, schema_fields, unique_key_field=unique_field)
 
-  # index the file
-  print wizard
-  job_id = indexer.run_morphline(collection_name, morphline, wizard["path"])
+  job_id = indexer.run_morphline(collection_name, morphline, file_format["path"])
 
   return JsonResponse({"jobId": job_id})
 
