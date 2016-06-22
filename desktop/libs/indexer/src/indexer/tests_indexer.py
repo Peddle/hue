@@ -97,7 +97,7 @@ class IndexerTest():
     # generate morphline
     morphline = indexer.generate_morphline_config(collection_name, format_, unique_field)
 
-    schema_fields = [{"name": unique_field, "type": "string"}] + format_['columns']
+    schema_fields = [{"name": unique_field, "type": "string"}] + indexer.get_kept_field_list(format_['columns'])
 
     # create the collection from the specified fields
     collection_manager = CollectionManagerController("test")

@@ -36,14 +36,22 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
   <div class="snippet-settings" data-bind="visible: createWizard.show" style="
   text-align: center;">
 
-    <div class="form-inline">
-      <label for="collectionName">${ _('Name') }</label>
-      <input class="form-control" id = "collectionName" data-bind="value: createWizard.fileFormat().name">
+    <div class="control-group" data-bind="css: { error: !createWizard.validName()}">
+      <label for="collectionName" class="control-label">${ _('Name') }</label>
+      <div class="controls">
+        <input type="text" class="form-control" id = "collectionName" data-bind="value: createWizard.fileFormat().name">
 
-      <label for="path">${ _('Path') }</label>
-      <input class="form-control" id = "path" data-bind="value: createWizard.fileFormat().path">
+        <span class="help-block" data-bind="visible: !createWizard.validName()">This collection already exists</span>
+      </div>
+    </div>
 
-      <a href="javascript:void(0)" class="btn" data-bind="click: createWizard.guessFormat">Guess Format</a>
+    <div class="control-group">
+      <label for="path" class="control-label">${ _('Path') }</label>
+      <div class="controls">
+        <input type="text" class="form-control" id = "path" data-bind="value: createWizard.fileFormat().path">
+        <a style="margin-bottom:10px" href="javascript:void(0)" class="btn" data-bind="click: createWizard.guessFormat">Guess Format</a>
+<!--         <span class="help-inline">Something may have gone wrong</span> -->
+      </div>
     </div>
 
 
@@ -62,11 +70,9 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
         </div>
 
         <h3> Fields</h3>
-        <ul data-bind="foreach: createWizard.fileFormat().columns">
-          <li>
-            <input data-bind="value: name"></input> - <select data-bind="options: $parent.createWizard.fileFormat().types, value: type"></select>
-          </li>
-        </ul>
+        <div data-bind="foreach: createWizard.fileFormat().columns">
+          <div data-bind="template: { name:'field-template',data:$data}"></div>
+        </div>
 
         <h3> Preview</h3>
         <table style="margin:auto;text-align:left">
@@ -86,7 +92,9 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 
         <br><hr><br>
 
-        <a href="javascript:void(0)" class="btn" data-bind="visible: !createWizard.indexingStarted(), click: createWizard.indexFile">Index File!</a>
+        <a href="javascript:void(0)" class="btn" data-bind="visible: !createWizard.indexingStarted() , click: createWizard.indexFile, css: {disabled : !createWizard.validName()}">Index File!</a>
+
+        <h4 class="error" data-bind="visible: !createWizard.validName()">Collection needs a unique name</h4>
 
         <a href="javascript:void(0)" class="btn btn-success" data-bind="visible: createWizard.jobId, attr: {           href: '/oozie/list_oozie_workflow/' + createWizard.jobId() }" target="_blank" title="${ _('Open') }">
           View Indexing Status
@@ -95,6 +103,29 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
       </div>
 
     <br/>
+  </div>
+</script>
+
+<script type="text/html" id="field-template">
+  <div>
+    <span>Keep </span><input type="checkbox" data-bind="checked: keep">
+    <span>Required </span><input type="checkbox" data-bind="checked: required">
+    <input type="text" data-bind="value: name"></input> - <select data-bind="options: $root.createWizard.fileFormat().types, value: type"></select>
+    <button class="btn" data-bind="click: $root.createWizard.addOperation">Add Operation</button>
+  </div>
+  <div data-bind="foreach: operations">
+  <div data-bind="template: { name:'split-template',data:$data}"></div>
+  </div>
+</script>
+
+<script type="text/html" id="split-template">
+  <div><h3>Split</h3>
+    <input type="text" data-bind="value: splitChar">
+    <input type="number" data-bind="value: numExpectedFields">
+
+    <div style="padding-left:50px" data-bind="foreach: fields">
+      <div data-bind="template: { name:'field-template',data:$data}"></div>
+    </div>
   </div>
 </script>
 
@@ -114,6 +145,49 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 
 
 <script type="text/javascript" charset="utf-8">
+  var createDefaultField = function(){
+    return {
+      name: "new_field",
+      type: "string",
+      keep: true,
+      required: true,
+      operations: []
+    }
+  };
+
+  var Operation = function(type){
+    // pseudo inheritance with flat object structure
+    var Types = {
+      "split": function(self){
+        self.splitChar = ko.observable();
+        self.numExpectedFields = ko.observable(0);
+
+        self.numExpectedFields.subscribe(function(numExpectedFields){
+          console.log(numExpectedFields);
+          if(numExpectedFields < self.fields().length){
+            self.fields(self.fields().slice(0,numExpectedFields));
+          }
+          else if (numExpectedFields > self.fields().length){
+            difference = numExpectedFields - self.fields().length;
+
+            for(var i = 0; i < difference; i++){
+              self.fields.push(createDefaultField());
+            }
+          }
+
+          console.log(self.fields());
+        });
+      }
+    };
+
+    var self = this;
+
+    self.type = ko.observable(type);
+    self.fields = ko.observableArray();
+
+    Types[type](self);
+  }
+
   var File_Format = function (vm) {
     var self = this;
 
@@ -123,7 +197,7 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
       "long"
       ]);
 
-    self.name = ko.observable('test');
+    self.name = ko.observable('');
     self.sample = ko.observableArray();
     self.show = ko.observable(false);
 
@@ -135,6 +209,8 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
   var CreateWizard = function (vm) {
     var self = this;
     var guessFieldTypesXhr;
+
+    self.validName = ko.observable(true);
 
     self.show = ko.observable(true);
     self.showCreate = ko.observable(false);
@@ -157,6 +233,10 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 
       self.guessFieldTypes();
     });
+
+    self.fileFormat().name.subscribe(function(newName){
+      self.validName(viewModel.collectionNameAvailable(newName));
+    })
 
     self.guessFormat = function() {
       console.log(ko.mapping.toJSON(self.fileFormat));
@@ -197,6 +277,7 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     };
 
     self.indexFile = function() {
+      if(!self.validName()) return;
       console.log(ko.mapping.toJSON(self.fileFormat));
 
       self.indexingStarted(true);
@@ -217,13 +298,34 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
         viewModel.isLoading(false);
       });
     }
+
+    self.addOperation = function(field){
+      field.operations.push(new Operation("split"));
+    }
   };
 
   var Editor = function () {
     var self = this;
 
+    self.collections = ${ indexes_json | n }.filter(function(index){
+      return index.type == 'collection';
+    });;
+
+    // self.collections = ko.computed(function() {
+    //   return $.grep(vm.indexes(), function(index) { return index.type() == 'collection'; });
+    // });
+
+
     self.createWizard = new CreateWizard(self);
     self.isLoading = ko.observable(false);
+
+    self.collectionNameAvailable = function(name){
+      var matchingCollections = self.collections.filter(function(collection){
+        return collection.name == name;
+      });
+
+      return matchingCollections.length == 0;
+    }
 
   };
 

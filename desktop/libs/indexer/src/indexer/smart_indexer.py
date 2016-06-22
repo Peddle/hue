@@ -15,17 +15,20 @@
 # limitations under the License.import logging
 import os
 import csv
-import uuid
 import operator
 import itertools
 
+from mako.lookup import TemplateLookup
 from mako.template import Template
 
 from liboozie.oozie_api import get_oozie
+from oozie.models2 import Job
 from liboozie.submission2 import Submission
 
 from indexer.conf import CONFIG_INDEXING_TEMPLATES_PATH
 from indexer.conf import zkensemble
+
+from collections import deque
 
 class Indexer(object):
   def __init__(self, username, fs):
@@ -34,31 +37,34 @@ class Indexer(object):
 
   # TODO: This oozie job code shouldn't be in the indexer. What's a better spot for it?
   def _upload_workspace(self, morphline):
-    index_uuid = uuid.uuid4()
+    # index_uuid = uuid.uuid4()
 
-    hdfs_workspace_path = "/var/tmp/indexer_workspace_%s" % (index_uuid)
+    # hdfs_workspace_path = "/var/tmp/indexer_workspace_%s" % (index_uuid)
+    hdfs_workspace_path = Job.get_workspace(self.username)
     hdfs_morphline_path = os.path.join(hdfs_workspace_path, "morphline.conf")
     hdfs_workflow_path = os.path.join(hdfs_workspace_path, "workflow.xml")
+    hdfs_log4j_properties_path = os.path.join(hdfs_workspace_path, "log4j.properties")
 
     workflow_template_path = os.path.join(CONFIG_INDEXING_TEMPLATES_PATH.get(), "workflow.xml")
-
+    log4j_template_path = os.path.join(CONFIG_INDEXING_TEMPLATES_PATH.get(), "log4j.properties")
 
     # create workspace on hdfs
     self.fs.do_as_user(self.username,  self.fs.mkdir, hdfs_workspace_path)
+
     self.fs.do_as_user(self.username,  self.fs.create, hdfs_morphline_path, data=morphline)
     self.fs.do_as_user(self.username,  self.fs.create, hdfs_workflow_path, data=open(workflow_template_path).read())
-
+    self.fs.do_as_user(self.username,  self.fs.create, hdfs_log4j_properties_path, data=open(log4j_template_path).read())
 
     return hdfs_workspace_path
 
   def _schedule_oozie_job(self, workspace_path, collection_name, input_path):
     oozie = get_oozie(self.username)
 
-    workspace = "hdfs://hue-aaron-1.vpc.cloudera.com:8020" + workspace_path
 
     properties = {
       "dryrun": "False",
       "zkHost":  zkensemble(),
+      # TODO this can be removed once workflow bug is fixed
       "hue-id-w": "55",
       # these libs can be installed from here:
       # https://drive.google.com/a/cloudera.com/folderview?id=0B1gZoK8Ae1xXc0sxSkpENWJ3WUU&usp=sharing
@@ -67,10 +73,9 @@ class Indexer(object):
       "collectionName": collection_name,
       "filePath": input_path,
       # TODO this shouldn't be hard coded either
-      "outputDir": "/var/tmp/load/",
+      "outputDir": "/user/%s/indexer" % self.username,
       "workspacePath": workspace_path,
-      'oozie.wf.application.path': workspace,
-      'username': self.username,
+      'oozie.wf.application.path': "${nameNode}%s" % workspace_path,
       'user.name': self.username
     }
 
@@ -111,6 +116,25 @@ class Indexer(object):
   def guess_field_types(self, data):
     file_format = FileFormat.get_instance(data['file'], data['format'])
     return file_format.get_fields()
+
+  # Breadth first ordering of fields
+  def get_field_list(self, field_data):
+    fields = []
+
+    queue = deque(field_data)
+
+    while len(queue):
+      curr_field = queue.pop()
+      fields.append(curr_field)
+
+      for operation in curr_field["operations"]:
+        for field in operation["fields"]:
+          queue.appendleft(field)
+
+    return fields
+
+  def get_kept_field_list(self, field_data):
+    return [field for field in self.get_field_list(field_data) if field['keep']]
 
   def get_uuid_name(self, format_):
     base_name = "_uuid"
@@ -158,7 +182,7 @@ class Indexer(object):
 
     properties = {
       "collection_name":collection_name,
-      "fields":data['columns'],
+      "fields":self.get_field_list(data['columns']),
       "format_character":Indexer._format_character,
       "uuid_name" : uuid_name,
       "get_regex":Indexer._get_regex_for_type,
@@ -167,11 +191,18 @@ class Indexer(object):
       "zk_host": zkensemble()
     }
 
+    print properties['fields']
+
     oozie_workspace = CONFIG_INDEXING_TEMPLATES_PATH.get()
 
-    morphline_template_path = os.path.join(oozie_workspace, "morphline_template.conf")
+    # morphline_template_path = os.path.join(oozie_workspace, "morphline_template.conf")
 
-    return Template(filename=morphline_template_path).render(**properties)
+    lookup = TemplateLookup(directories=[oozie_workspace])
+    morphline = lookup.get_template("morphline_template.conf").render(**properties)
+    # morphline = Template(filename=morphline_template_path, lookup=lookup).render(**properties)
+
+
+    return morphline
 
 class Field(object):
   TYPE_PRIORITY = [
@@ -184,6 +215,9 @@ class Field(object):
   def __init__(self, name, field_type):
     self._name = name
     self._field_type = field_type
+    self._keep = True
+    self._operations = []
+    self._required = True
 
   @staticmethod
   def guess_type(samples):
@@ -220,6 +254,10 @@ class Field(object):
         return field
     return "string"
 
+  @property
+  def required(self):
+    return self._required
+  
 
   @property
   def name(self):
@@ -229,8 +267,21 @@ class Field(object):
   def field_type(self):
     return self._field_type
 
+  @property
+  def keep(self):
+    return self._keep
+  
+  @property
+  def operations(self):
+    return self._operations
+  
+
   def to_dict(self):
-    return {'name': self.name, 'type': self.field_type}
+    return {'name': self.name, 
+    'type': self.field_type, 
+    'keep': self.keep, 
+    'operations': self.operations,
+    'required': self.required}
 
 class FileFormat(object):
   @staticmethod

@@ -104,13 +104,16 @@ def index_file(request):
 
   unique_field = indexer.get_uuid_name(file_format)
 
-  schema_fields = [{"name": unique_field, "type": "string"}] + file_format['columns']
+  schema_fields = [{"name": unique_field, "type": "string"}] + \
+    indexer.get_kept_field_list(file_format['columns'])
   morphline = indexer.generate_morphline_config(collection_name, file_format, unique_field)
 
+  print schema_fields
+
   collection_manager = CollectionManagerController("test")
-  if collection_manager.collection_exists(collection_name):
-    collection_manager.delete_collection(collection_name, None)
-  collection_manager.create_collection(collection_name, schema_fields, unique_key_field=unique_field)
+  if not collection_manager.collection_exists(collection_name):
+    collection_manager.create_collection(collection_name, schema_fields, unique_key_field=unique_field)
+
 
   job_id = indexer.run_morphline(collection_name, morphline, file_format["path"])
 

@@ -35,7 +35,7 @@ limitations under the License.import logging -->
             <arg>--morphline-file</arg>
             <arg>morphline.conf</arg>
             <arg>--output-dir</arg>
-            <arg>${nameNode}${outputDir}${username}</arg>
+            <arg>${nameNode}${outputDir}</arg>
             <arg>--log4j</arg>
             <arg>log4j.properties</arg>
             <arg>--verbose</arg>
@@ -46,17 +46,10 @@ limitations under the License.import logging -->
             <arg>${collectionName}</arg>
             <arg>${nameNode}${filePath}</arg>
             <file>morphline.conf#morphline.conf</file>
-            <file>/user/hue/log4j.properties#log4j.properties</file>
+            <file>log4j.properties#log4j.properties</file>
         </java>
-        <ok to="clean-up"/>
+        <ok to="End"/>
         <error to="IndexFailed"/>
-    </action>
-    <action name="clean-up">
-      <fs>
-        <delete path="${workspacePath}"/>
-      </fs>
-      <ok to="End"/>
-      <error to="CleanupFailed"/>
     </action>
     <end name="End"/>
 </workflow-app>
