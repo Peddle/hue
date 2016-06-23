@@ -161,6 +161,7 @@ class Indexer(object):
   def _get_regex_for_type(type_):
     regexes = {
       "string":".*",
+      "text":".*",
       "int": "(?:[+-]?(?:[0-9]+))", #TODO: differentiate between ints and longs
       "long": "(?:[+-]?(?:[0-9]+))",
       "double": "(?<![0-9.+-])(?>[+-]?(?:(?:[0-9]+(?:\\.[0-9]+)?)|(?:\\.[0-9]+)))"
@@ -230,7 +231,8 @@ class Field(object):
   @staticmethod
   def _guess_field_type(field):
     # TODO differentiate between text and string
-    type_ = "string"
+    STRING_THRESHOLD = 100
+    type_ = "string" if len(field) < STRING_THRESHOLD else "text"
 
     try:
       num = int(field)

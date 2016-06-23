@@ -36,12 +36,12 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
   <div class="snippet-settings" data-bind="visible: createWizard.show" style="
   text-align: center;">
 
-    <div class="control-group" data-bind="css: { error: !createWizard.validName()}">
+    <div class="control-group" data-bind="css: { error: createWizard.validName() === false, success: createWizard.validName()}">
       <label for="collectionName" class="control-label">${ _('Name') }</label>
       <div class="controls">
-        <input type="text" class="form-control" id = "collectionName" data-bind="value: createWizard.fileFormat().name">
-
-        <span class="help-block" data-bind="visible: !createWizard.validName()">This collection already exists</span>
+        <input type="text" class="form-control" id = "collectionName" data-bind="value: createWizard.fileFormat().name, valueUpdate: 'afterkeydown'">
+        <span class="help-block" data-bind="visible: createWizard.validName() === true">Collection name available</span>
+        <span class="help-block" data-bind="visible: createWizard.validName() === false">This collection already exists</span>
       </div>
     </div>
 
@@ -110,24 +110,34 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
   <div>
     <span>Keep </span><input type="checkbox" data-bind="checked: keep">
     <span>Required </span><input type="checkbox" data-bind="checked: required">
-    <input type="text" data-bind="value: name"></input> - <select data-bind="options: $root.createWizard.fileFormat().types, value: type"></select>
+    <input type="text" data-bind="value: name"></input> - <select data-bind="options: $root.createWizard.fieldTypes, value: type"></select>
     <button class="btn" data-bind="click: $root.createWizard.addOperation">Add Operation</button>
   </div>
   <div data-bind="foreach: operations">
-    <div data-bind="template: { name:'split-template',data:$data}"></div>
+    <div data-bind="template: { name:'operation-template',data:{operation: $data, list: $parent.operations}}"></div>
+  </div>
+</script>
+
+<script type="text/html" id="operation-template">
+  <div><select data-bind="options: $root.createWizard.operationTypes, value: operation.type"></select>
+  <!-- ko template: operation.type()+'-template' --><!-- /ko -->
+    <input type="number" data-bind="value: operation.numExpectedFields">
+    <button class="btn" data-bind="click: function(){$root.createWizard.removeOperation(operation, list)}">remove</button>
+    <div style="padding-left:50px" data-bind="foreach: operation.fields">
+      <div data-bind="template: { name:'field-template',data:$data}"></div>
+    </div>
+
   </div>
 </script>
 
 <script type="text/html" id="split-template">
-  <div><h3>Split</h3>
-    <input type="text" data-bind="value: splitChar">
-    <input type="number" data-bind="value: numExpectedFields">
-
-    <div style="padding-left:50px" data-bind="foreach: fields">
-      <div data-bind="template: { name:'field-template',data:$data}"></div>
-    </div>
-  </div>
+  <input type="text" data-bind="value: operation.settings().splitChar">
 </script>
+
+<script type="text/html" id="grok-template">
+  <input type="text" data-bind="value: operation.settings().regexp">
+</script>
+
 
 <div class="hueOverlay" data-bind="visible: isLoading">
   <!--[if lte IE 9]>
@@ -156,27 +166,17 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
   };
 
   var Operation = function(type){
-    // pseudo inheritance with flat object structure
     var Types = {
-      "split": function(self){
-        self.splitChar = ko.observable();
-        self.numExpectedFields = ko.observable(0);
+      "split": function(){
+        settings = {}
+        settings.splitChar = ko.observable(',');
+        return ko.observable(settings);
+      },
+      "grok": function(self){
+        settings = {};
+        settings.regexp = ko.observable();
 
-        self.numExpectedFields.subscribe(function(numExpectedFields){
-          console.log(numExpectedFields);
-          if(numExpectedFields < self.fields().length){
-            self.fields(self.fields().slice(0,numExpectedFields));
-          }
-          else if (numExpectedFields > self.fields().length){
-            difference = numExpectedFields - self.fields().length;
-
-            for(var i = 0; i < difference; i++){
-              self.fields.push(createDefaultField());
-            }
-          }
-
-          console.log(self.fields());
-        });
+        return ko.observable(settings);
       }
     };
 
@@ -185,17 +185,34 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     self.type = ko.observable(type);
     self.fields = ko.observableArray();
 
-    Types[type](self);
+    self.numExpectedFields = ko.observable(0);
+
+    self.numExpectedFields.subscribe(function(numExpectedFields){
+      console.log(numExpectedFields);
+      if(numExpectedFields < self.fields().length){
+        self.fields(self.fields().slice(0,numExpectedFields));
+      }
+      else if (numExpectedFields > self.fields().length){
+        difference = numExpectedFields - self.fields().length;
+
+        for(var i = 0; i < difference; i++){
+          self.fields.push(createDefaultField());
+        }
+      }
+
+      console.log(self.fields());
+    });
+
+    self.settings = Types[type]();
+
+    self.type.subscribe(function(newType){
+      self.settings = Types[newType]();
+    });
   }
 
   var File_Format = function (vm) {
     var self = this;
 
-    self.types = ko.observableArray([
-      "string",
-      "int",
-      "long"
-      ]);
 
     self.name = ko.observable('');
     self.sample = ko.observableArray();
@@ -210,7 +227,19 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     var self = this;
     var guessFieldTypesXhr;
 
-    self.validName = ko.observable(true);
+    self.operationTypes = ko.observableArray([
+      "split",
+      "grok"
+      ]);
+
+    self.fieldTypes = ko.observableArray([
+      "string",
+      "text",
+      "int",
+      "long"
+      ]);
+
+    self.validName = ko.observable(null);
 
     self.show = ko.observable(true);
     self.showCreate = ko.observable(false);
@@ -297,6 +326,10 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
         $(document).trigger("error", xhr.responseText);
         viewModel.isLoading(false);
       });
+    }
+
+    self.removeOperation = function(operation, operationList){
+      operationList.remove(operation);
     }
 
     self.addOperation = function(field){
