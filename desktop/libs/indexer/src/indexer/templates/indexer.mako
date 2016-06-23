@@ -114,7 +114,7 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     <button class="btn" data-bind="click: $root.createWizard.addOperation">Add Operation</button>
   </div>
   <div data-bind="foreach: operations">
-  <div data-bind="template: { name:'split-template',data:$data}"></div>
+    <div data-bind="template: { name:'split-template',data:$data}"></div>
   </div>
 </script>
 
@@ -147,11 +147,11 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 <script type="text/javascript" charset="utf-8">
   var createDefaultField = function(){
     return {
-      name: "new_field",
-      type: "string",
-      keep: true,
-      required: true,
-      operations: []
+      name: ko.observable("new_field"),
+      type: ko.observable("string"),
+      keep: ko.observable(true),
+      required: ko.observable(true),
+      operations: ko.observableArray([])
     }
   };
 
@@ -300,6 +300,7 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     }
 
     self.addOperation = function(field){
+      console.log("pushing operation");
       field.operations.push(new Operation("split"));
     }
   };

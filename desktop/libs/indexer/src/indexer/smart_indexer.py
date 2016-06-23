@@ -87,6 +87,8 @@ class Indexer(object):
   def run_morphline(self, collection_name, morphline, input_path):
     workspace_path = self._upload_workspace(morphline)
 
+    print "DEBUG=========================\n%s\n========================" % workspace_path
+
     job_id = self._schedule_oozie_job(workspace_path, collection_name, input_path)
     return job_id
 
@@ -158,7 +160,7 @@ class Indexer(object):
   @staticmethod
   def _get_regex_for_type(type_):
     regexes = {
-      "string":".+",
+      "string":".*",
       "int": "(?:[+-]?(?:[0-9]+))", #TODO: differentiate between ints and longs
       "long": "(?:[+-]?(?:[0-9]+))",
       "double": "(?<![0-9.+-])(?>[+-]?(?:(?:[0-9]+(?:\\.[0-9]+)?)|(?:\\.[0-9]+)))"
