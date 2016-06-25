@@ -85,7 +85,7 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
             <tr data-bind="foreach: $data">
               <td data-bind="text: $data">
               </td>
-              
+
                 <!-- ko with: $root.createWizard.fileFormat().columns()[$index()] -->
                   <!-- ko template: 'output-generated-field-data-template' --> <!-- /ko -->
                 <!-- /ko -->
@@ -265,7 +265,7 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 
     self.show = ko.observable(true);
     self.showCreate = ko.observable(false);
-    
+
     self.fileFormat = ko.observable(new File_Format(vm));
 
     self.sample = ko.observableArray();

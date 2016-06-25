@@ -26,6 +26,7 @@ from oozie.models2 import Job
 from liboozie.submission2 import Submission
 
 from indexer.conf import CONFIG_INDEXING_TEMPLATES_PATH
+from indexer.conf import CONFIG_INDEXER_LIBS_PATH
 from indexer.conf import zkensemble
 
 from collections import deque
@@ -44,38 +45,31 @@ class Indexer(object):
     hdfs_morphline_path = os.path.join(hdfs_workspace_path, "morphline.conf")
     hdfs_workflow_path = os.path.join(hdfs_workspace_path, "workflow.xml")
     hdfs_log4j_properties_path = os.path.join(hdfs_workspace_path, "log4j.properties")
-    hdfs_grok_patterns_path = os.path.join(hdfs_workspace_path, "grok-patterns.txt")
 
     workflow_template_path = os.path.join(CONFIG_INDEXING_TEMPLATES_PATH.get(), "workflow.xml")
     log4j_template_path = os.path.join(CONFIG_INDEXING_TEMPLATES_PATH.get(), "log4j.properties")
-    grok_patterns_path = os.path.join(CONFIG_INDEXING_TEMPLATES_PATH.get(), "grok-patterns.txt")
 
     # create workspace on hdfs
-    self.fs.do_as_user(self.username,  self.fs.mkdir, hdfs_workspace_path)
+    self.fs.do_as_user(self.username, self.fs.mkdir, hdfs_workspace_path)
 
-    self.fs.do_as_user(self.username,  self.fs.create, hdfs_morphline_path, data=morphline)
-    self.fs.do_as_user(self.username,  self.fs.create, hdfs_workflow_path, data=open(workflow_template_path).read())
-    self.fs.do_as_user(self.username,  self.fs.create, hdfs_log4j_properties_path, data=open(log4j_template_path).read())
-    self.fs.do_as_user(self.username,  self.fs.create, hdfs_grok_patterns_path, data=open(grok_patterns_path).read())
+    self.fs.do_as_user(self.username, self.fs.create, hdfs_morphline_path, data=morphline)
+    self.fs.do_as_user(self.username, self.fs.create, hdfs_workflow_path, data=open(workflow_template_path).read())
+    self.fs.do_as_user(self.username, self.fs.create, hdfs_log4j_properties_path, data=open(log4j_template_path).read())
 
     return hdfs_workspace_path
 
   def _schedule_oozie_job(self, workspace_path, collection_name, input_path):
     oozie = get_oozie(self.username)
 
-
     properties = {
       "dryrun": "False",
       "zkHost":  zkensemble(),
-      # TODO this can be removed once workflow bug is fixed
-      "hue-id-w": "55",
       # these libs can be installed from here:
       # https://drive.google.com/a/cloudera.com/folderview?id=0B1gZoK8Ae1xXc0sxSkpENWJ3WUU&usp=sharing
-      "oozie.libpath": "/tmp/smart_indexer_lib",
+      "oozie.libpath": CONFIG_INDEXER_LIBS_PATH,
       "security_enabled": "False",
       "collectionName": collection_name,
       "filePath": input_path,
-      # TODO this shouldn't be hard coded either
       "outputDir": "/user/%s/indexer" % self.username,
       "workspacePath": workspace_path,
       'oozie.wf.application.path': "${nameNode}%s" % workspace_path,
@@ -194,8 +188,7 @@ class Indexer(object):
       "uuid_name" : uuid_name,
       "get_regex":Indexer._get_regex_for_type,
       "format":data['format'],
-      "grok_dictionaries_location" : "/tmp/smart_indexer_lib/grok_dictionaries",
-      # TODO this shouldn't be hardcoded
+      "grok_dictionaries_location" : os.path.join(CONFIG_INDEXER_LIBS_PATH, "/grok_dictionaries"),
       "zk_host": zkensemble()
     }
 
@@ -208,7 +201,6 @@ class Indexer(object):
     lookup = TemplateLookup(directories=[oozie_workspace])
     morphline = lookup.get_template("morphline_template.conf").render(**properties)
     # morphline = Template(filename=morphline_template_path, lookup=lookup).render(**properties)
-
 
     return morphline
 
@@ -266,7 +258,6 @@ class Field(object):
   @property
   def required(self):
     return self._required
-  
 
   @property
   def name(self):
@@ -279,16 +270,15 @@ class Field(object):
   @property
   def keep(self):
     return self._keep
-  
+
   @property
   def operations(self):
     return self._operations
-  
 
   def to_dict(self):
-    return {'name': self.name, 
-    'type': self.field_type, 
-    'keep': self.keep, 
+    return {'name': self.name,
+    'type': self.field_type,
+    'keep': self.keep,
     'operations': self.operations,
     'required': self.required}
 
@@ -307,7 +297,6 @@ class FileFormat(object):
   @property
   def sample(self):
     pass
-  
 
   @property
   def fields(self):

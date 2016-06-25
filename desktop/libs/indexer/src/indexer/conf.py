@@ -86,6 +86,13 @@ CONFIG_INDEXING_TEMPLATES_PATH = Config(
   default=os.path.join(os.path.dirname(__file__), '..', 'data', 'oozie_workspace')
   )
 
+CONFIG_INDEXER_LIBS_PATH = Config(
+  key="config_indexer_libs_path",
+  help=_t("oozie workspace template for indexing:"),
+  type=str,
+  default='/tmp/smart_indexer_lib'
+  )
+
 SOLRCTL_PATH = Config(
   key="solrctl_path",
   help=_t("Location of the solrctl binary."),
