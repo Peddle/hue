@@ -44,6 +44,7 @@ limitations under the License.import logging -->
             <arg>${nameNode}${filePath}</arg>
             <file>morphline.conf#morphline.conf</file>
             <file>log4j.properties#log4j.properties</file>
+            <file>grok-patterns.txt#grok-patterns.txt</file>
         </java>
         <ok to="End"/>
         <error to="IndexFailed"/>

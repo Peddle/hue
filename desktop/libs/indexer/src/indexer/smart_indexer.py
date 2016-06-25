@@ -44,9 +44,11 @@ class Indexer(object):
     hdfs_morphline_path = os.path.join(hdfs_workspace_path, "morphline.conf")
     hdfs_workflow_path = os.path.join(hdfs_workspace_path, "workflow.xml")
     hdfs_log4j_properties_path = os.path.join(hdfs_workspace_path, "log4j.properties")
+    hdfs_grok_patterns_path = os.path.join(hdfs_workspace_path, "grok-patterns.txt")
 
     workflow_template_path = os.path.join(CONFIG_INDEXING_TEMPLATES_PATH.get(), "workflow.xml")
     log4j_template_path = os.path.join(CONFIG_INDEXING_TEMPLATES_PATH.get(), "log4j.properties")
+    grok_patterns_path = os.path.join(CONFIG_INDEXING_TEMPLATES_PATH.get(), "grok-patterns.txt")
 
     # create workspace on hdfs
     self.fs.do_as_user(self.username,  self.fs.mkdir, hdfs_workspace_path)
@@ -54,6 +56,7 @@ class Indexer(object):
     self.fs.do_as_user(self.username,  self.fs.create, hdfs_morphline_path, data=morphline)
     self.fs.do_as_user(self.username,  self.fs.create, hdfs_workflow_path, data=open(workflow_template_path).read())
     self.fs.do_as_user(self.username,  self.fs.create, hdfs_log4j_properties_path, data=open(log4j_template_path).read())
+    self.fs.do_as_user(self.username,  self.fs.create, hdfs_grok_patterns_path, data=open(grok_patterns_path).read())
 
     return hdfs_workspace_path
 
@@ -126,12 +129,12 @@ class Indexer(object):
     queue = deque(field_data)
 
     while len(queue):
-      curr_field = queue.pop()
+      curr_field = queue.popleft()
       fields.append(curr_field)
 
       for operation in curr_field["operations"]:
         for field in operation["fields"]:
-          queue.appendleft(field)
+          queue.append(field)
 
     return fields
 
@@ -186,10 +189,12 @@ class Indexer(object):
     properties = {
       "collection_name":collection_name,
       "fields":self.get_field_list(data['columns']),
+      "num_base_fields": len(data['columns']),
       "format_character":Indexer._format_character,
       "uuid_name" : uuid_name,
       "get_regex":Indexer._get_regex_for_type,
       "format":data['format'],
+      "grok_dictionaries_location" : "/tmp/smart_indexer_lib/grok_dictionaries",
       # TODO this shouldn't be hardcoded
       "zk_host": zkensemble()
     }

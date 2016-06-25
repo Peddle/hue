@@ -78,14 +78,17 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
         <table style="margin:auto;text-align:left">
           <thead>
             <tr data-bind="foreach: createWizard.fileFormat().columns">
-              <th data-bind="text: name" style="padding-right:60px">
-              </th>
+              <!-- ko template: 'field-preview-header-template' --><!-- /ko -->
             </tr>
           </thead>
           <tbody data-bind="foreach: createWizard.sample">
             <tr data-bind="foreach: $data">
               <td data-bind="text: $data">
               </td>
+              
+                <!-- ko with: $root.createWizard.fileFormat().columns()[$index()] -->
+                  <!-- ko template: 'output-generated-field-data-template' --> <!-- /ko -->
+                <!-- /ko -->
             </tr>
           </tbody>
         </table>
@@ -128,6 +131,25 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     </div>
 
   </div>
+</script>
+
+<script type="text/html" id="field-preview-header-template">
+  <th data-bind="text: name" style="padding-right:60px"></th>
+  <!-- ko foreach: operations -->
+    <!--ko foreach: fields -->
+      <!-- ko template: 'field-preview-header-template' --><!-- /ko -->
+    <!-- /ko -->
+  <!--/ko -->
+</script>
+
+
+<script type="text/html" id="output-generated-field-data-template">
+  <!-- ko foreach: operations -->
+    <!--ko foreach: fields -->
+      <td>[[generated]]</td>
+      <!-- ko template: 'output-generated-field-data-template' --><!-- /ko -->
+    <!-- /ko -->
+  <!--/ko -->
 </script>
 
 <script type="text/html" id="split-template">
