@@ -78,11 +78,7 @@ def guess_field_types(request):
 
   stream = request.fs.open(file_format["path"])
 
-  print file_format["format"]["fieldSeparator"]
-
   _convert_format(file_format["format"], inverse = True)
-
-  print file_format["format"]["fieldSeparator"]
 
   format_ = indexer.guess_field_types({"file":stream, "format":file_format['format']})
 
@@ -102,8 +98,6 @@ def index_file(request):
   schema_fields = [{"name": unique_field, "type": "string"}] + \
     indexer.get_kept_field_list(file_format['columns'])
   morphline = indexer.generate_morphline_config(collection_name, file_format, unique_field)
-
-  print schema_fields
 
   collection_manager = CollectionManagerController("test")
   if not collection_manager.collection_exists(collection_name):

@@ -84,8 +84,6 @@ class Indexer(object):
   def run_morphline(self, collection_name, morphline, input_path):
     workspace_path = self._upload_workspace(morphline)
 
-    print "DEBUG=========================\n%s\n========================" % workspace_path
-
     job_id = self._schedule_oozie_job(workspace_path, collection_name, input_path)
     return job_id
 
@@ -159,7 +157,7 @@ class Indexer(object):
     regexes = {
       "string":".*",
       "text":".*",
-      "int": "(?:[+-]?(?:[0-9]+))", #TODO: differentiate between ints and longs
+      "int": "(?:[+-]?(?:[0-9]+))",
       "long": "(?:[+-]?(?:[0-9]+))",
       "double": "(?<![0-9.+-])(?>[+-]?(?:(?:[0-9]+(?:\\.[0-9]+)?)|(?:\\.[0-9]+)))"
     }
@@ -191,8 +189,6 @@ class Indexer(object):
       "grok_dictionaries_location" : os.path.join(CONFIG_INDEXER_LIBS_PATH, "/grok_dictionaries"),
       "zk_host": zkensemble()
     }
-
-    print properties['fields']
 
     oozie_workspace = CONFIG_INDEXING_TEMPLATES_PATH.get()
 
@@ -227,7 +223,6 @@ class Field(object):
 
   @staticmethod
   def _guess_field_type(field):
-    # TODO differentiate between text and string
     STRING_THRESHOLD = 100
     type_ = "string" if len(field) < STRING_THRESHOLD else "text"
 
@@ -415,7 +410,6 @@ class CSVFormat(FileFormat):
     return field_type_guesses
 
   def _get_sample_reader(self, sample):
-    print [self.line_terminator]
     if self.line_terminator != '\n':
       sample = sample.replace('\n', '\\n')
     return csv.reader(sample.split(self.line_terminator), delimiter=self.delimiter, quotechar=self.quote_char)
@@ -444,9 +438,6 @@ class CSVFormat(FileFormat):
   def _guess_fields(self, sample):
     header = self._guess_field_names(sample)
     types = self._guess_field_types(self._sample_rows)
-
-    print header
-    print types
 
     if len(header) == len(types):
       fields = [Field(header[i], types[i]) for i in range(len(header))]
