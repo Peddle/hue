@@ -66,7 +66,7 @@ class Indexer(object):
       "zkHost":  zkensemble(),
       # these libs can be installed from here:
       # https://drive.google.com/a/cloudera.com/folderview?id=0B1gZoK8Ae1xXc0sxSkpENWJ3WUU&usp=sharing
-      "oozie.libpath": CONFIG_INDEXER_LIBS_PATH,
+      "oozie.libpath": CONFIG_INDEXER_LIBS_PATH.get(),
       "security_enabled": "False",
       "collectionName": collection_name,
       "filePath": input_path,
@@ -186,7 +186,7 @@ class Indexer(object):
       "uuid_name" : uuid_name,
       "get_regex":Indexer._get_regex_for_type,
       "format":data['format'],
-      "grok_dictionaries_location" : os.path.join(CONFIG_INDEXER_LIBS_PATH, "/grok_dictionaries"),
+      "grok_dictionaries_location" : os.path.join(CONFIG_INDEXER_LIBS_PATH.get(), "grok_dictionaries"),
       "zk_host": zkensemble()
     }
 
