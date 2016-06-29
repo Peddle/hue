@@ -17,8 +17,10 @@ import StringIO
 import logging
 
 from nose.tools import assert_equal
+from nose.plugins.skip import SkipTest
 
 from hadoop import cluster
+from hadoop.pseudo_hdfs4 import is_live_cluster
 
 from indexer.smart_indexer import Indexer
 from indexer.controller import CollectionManagerController
@@ -32,28 +34,31 @@ class IndexerTest():
 3,3,Berkeley,Sauls,2:30pm
 """
 
+  def setup(self):
+    if not is_live_cluster():
+      raise SkipTest()
+
   def test_guess_format(self):
     stream = StringIO.StringIO(IndexerTest.simpleCSVString)
+    indexer = Indexer("hue", None)
 
-    guessed_format = Indexer("hue", None).guess_format({'file': stream})
+    guessed_format = indexer.guess_format({'file': stream})
 
-    file_format = guessed_format['format']
-    fields = guessed_format['columns']
-
+    fields = indexer.guess_field_types({"file":stream, "format": guessed_format})['columns']
     # test format
-    assert_equal('csv', file_format['type'])
-    assert_equal(',', file_format['fieldSeparator'])
-    assert_equal('\r\n', file_format['recordSeparator'])
+    assert_equal('csv', guessed_format['type'])
+    assert_equal(',', guessed_format['fieldSeparator'])
+    assert_equal('\n', guessed_format['recordSeparator'])
 
     # test fields
     expected_fields = [
       {
         "name": "id",
-        "type": "int"
+        "type": "long"
       },
       {
         "name": "Rating",
-        "type": "int"
+        "type": "long"
       },
       {
         "name": "Location",
@@ -69,7 +74,12 @@ class IndexerTest():
       }
     ]
 
-    assert_equal(expected_fields, fields)
+    for i in range(len(expected_fields)):
+      expected = expected_fields[i]
+      actual = fields[i]
+
+      for key in ("name", "type"):
+        assert_equal(expected[key], actual[key])
 
   def test_end_to_end(self):
     fs = cluster.get_hdfs()

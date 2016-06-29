@@ -60,46 +60,34 @@ def _convert_format(format_dict, inverse = False):
 
 def guess_format(request):
   file_format = json.loads(request.POST.get('fileFormat', '{}'))
-
   indexer = Indexer(request.user, request.fs)
-
   stream = request.fs.open(file_format["path"])
-
   format_ = indexer.guess_format({"file":stream})
-
   _convert_format(format_)
   
   return JsonResponse(format_)
 
 def guess_field_types(request):
   file_format = json.loads(request.POST.get('fileFormat', '{}'))
-
   indexer = Indexer(request.user, request.fs)
-
   stream = request.fs.open(file_format["path"])
-
   _convert_format(file_format["format"], inverse = True)
-
   format_ = indexer.guess_field_types({"file":stream, "format":file_format['format']})
 
   return JsonResponse(format_)
 
 def index_file(request):
   file_format = json.loads(request.POST.get('fileFormat', '{}'))
-
   _convert_format(file_format["format"], inverse = True)
-
   collection_name = file_format["name"]
-
   indexer = Indexer(request.user, request.fs)
-
   unique_field = indexer.get_uuid_name(file_format)
-
   schema_fields = [{"name": unique_field, "type": "string"}] + \
     indexer.get_kept_field_list(file_format['columns'])
+
   morphline = indexer.generate_morphline_config(collection_name, file_format, unique_field)
 
-  collection_manager = CollectionManagerController("test")
+  collection_manager = CollectionManagerController(request.user.username)
   if not collection_manager.collection_exists(collection_name):
     collection_manager.create_collection(collection_name, schema_fields, unique_key_field=unique_field)
 

@@ -17,6 +17,8 @@ import os
 import csv
 import operator
 import itertools
+import re
+import logging
 
 from mako.lookup import TemplateLookup
 from mako.template import Template
@@ -31,6 +33,8 @@ from indexer.conf import zkensemble
 
 from collections import deque
 
+LOG = logging.getLogger(__name__)
+
 class Indexer(object):
   def __init__(self, username, fs):
     self.fs = fs
@@ -38,9 +42,6 @@ class Indexer(object):
 
   # TODO: This oozie job code shouldn't be in the indexer. What's a better spot for it?
   def _upload_workspace(self, morphline):
-    # index_uuid = uuid.uuid4()
-
-    # hdfs_workspace_path = "/var/tmp/indexer_workspace_%s" % (index_uuid)
     hdfs_workspace_path = Job.get_workspace(self.username)
     hdfs_morphline_path = os.path.join(hdfs_workspace_path, "morphline.conf")
     hdfs_workflow_path = os.path.join(hdfs_workspace_path, "workflow.xml")
@@ -154,15 +155,9 @@ class Indexer(object):
 
   @staticmethod
   def _get_regex_for_type(type_):
-    regexes = {
-      "string":".*",
-      "text":".*",
-      "int": "(?:[+-]?(?:[0-9]+))",
-      "long": "(?:[+-]?(?:[0-9]+))",
-      "double": "(?<![0-9.+-])(?>[+-]?(?:(?:[0-9]+(?:\\.[0-9]+)?)|(?:\\.[0-9]+)))"
-    }
+    matches = filter(lambda field_type: field_type.name == type_, Field.TYPES)
 
-    return regexes[type_].replace('\\', '\\\\')
+    return matches[0].regex.replace('\\', '\\\\')
 
   def generate_morphline_config(self, collection_name, data, uuid_name):
     """
@@ -192,20 +187,63 @@ class Indexer(object):
 
     oozie_workspace = CONFIG_INDEXING_TEMPLATES_PATH.get()
 
-    # morphline_template_path = os.path.join(oozie_workspace, "morphline_template.conf")
-
     lookup = TemplateLookup(directories=[oozie_workspace])
     morphline = lookup.get_template("morphline_template.conf").render(**properties)
-    # morphline = Template(filename=morphline_template_path, lookup=lookup).render(**properties)
 
     return morphline
 
+class FieldType():
+  def __init__(self, name, regex):
+    self._name = name
+    self._regex = regex
+
+  @property
+  def name(self):
+    return self._name
+
+  @property
+  def regex(self):
+    return self._regex
+  
+ 
+  def matches(self, field):
+    pattern = re.compile(self._regex)
+
+    return pattern.match(field)
+
+class Operator():
+  def __init__(self, name, args):
+    self._name = name
+    self._args = args
+
+  def to_dict(self):
+    return {
+      "name": self._name,
+      "args": self._args
+    }
+
 class Field(object):
-  TYPE_PRIORITY = [
-    'string',
-    'double',
-    'long',
-    'int'
+  TYPES = [
+    FieldType('text', "^.{100,}$"),
+    FieldType('string', "^.*$"),
+    FieldType('double', "^[+-]?[0-9]+\\.?[0-9]+$"),
+    FieldType('long', "^(?:[+-]?(?:[0-9]+))$"),
+    FieldType('date', "[0-9]+-[0-9]+-[0-9]+T[0-9]+:[0-9]+:[0-9]+(\\.[0-9]*)?Z")
+  ]
+
+  OPERATORS = [
+    Operator(
+      name="split",
+      args=["splitChar"]
+      ),
+    Operator(
+      name="grok",
+      args=["regexp"]
+      ),
+    Operator(
+      name="convert_date",
+      args=["format"]
+      ),
   ]
 
   def __init__(self, name, field_type):
@@ -223,31 +261,17 @@ class Field(object):
 
   @staticmethod
   def _guess_field_type(field):
-    STRING_THRESHOLD = 100
-    type_ = "string" if len(field) < STRING_THRESHOLD else "text"
-
-    try:
-      num = int(field)
-      if isinstance(num, int):
-        type_ = "int"
-      elif isinstance(num, long):
-        type_ = "long"
-    except ValueError:
-      try:
-        num = float(field)
-        type_ = "double"
-      except ValueError:
-        pass
-
-    return type_
+    for field_type in Field.TYPES[::-1]:
+      if field_type.matches(field):
+        return field_type.name
 
   @staticmethod
   def _pick_best(types):
     types = set(types)
 
-    for field in Field.TYPE_PRIORITY:
-      if field in types:
-        return field
+    for field in Field.TYPES:
+      if field.name in types:
+        return field.name
     return "string"
 
   @property
@@ -390,7 +414,7 @@ class CSVFormat(FileFormat):
         counts[num_columns] = 0
       counts[num_columns] += 1
 
-    if len(counts):
+    if counts:
       num_columns_guess = max(counts.iteritems(), key=operator.itemgetter(1))[0]
     else:
       num_columns_guess = 0
@@ -443,6 +467,7 @@ class CSVFormat(FileFormat):
       fields = [Field(header[i], types[i]) for i in range(len(header))]
     else:
       # likely failed to guess correctly
+      LOG.warn("Guess field types failed - number of headers didn't match number of predicted types.")
       fields = []
 
     return fields

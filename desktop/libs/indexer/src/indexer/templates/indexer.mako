@@ -83,7 +83,7 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
           </thead>
           <tbody data-bind="foreach: createWizard.sample">
             <tr data-bind="foreach: $data">
-              <td data-bind="text: $data">
+              <td data-bind="visible: $root.createWizard.fileFormat().columns()[$index()].keep, text: $data">
               </td>
 
                 <!-- ko with: $root.createWizard.fileFormat().columns()[$index()] -->
@@ -122,8 +122,8 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 </script>
 
 <script type="text/html" id="operation-template">
-  <div><select data-bind="options: $root.createWizard.operationTypes, value: operation.type"></select>
-  <!-- ko template: operation.type()+'-template' --><!-- /ko -->
+  <div><select data-bind="options: $root.createWizard.operationTypes.map(function(o){return o.name});, value: operation.type"></select>
+  <!-- ko template: "operation-args-template" --><!-- /ko -->
     <input type="number" data-bind="value: operation.numExpectedFields">
     <button class="btn" data-bind="click: function(){$root.createWizard.removeOperation(operation, list)}">remove</button>
     <div style="padding-left:50px" data-bind="foreach: operation.fields">
@@ -134,7 +134,8 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 </script>
 
 <script type="text/html" id="field-preview-header-template">
-  <th data-bind="text: name" style="padding-right:60px"></th>
+
+  <th data-bind="visible: keep, text: name" style="padding-right:60px"></th>
   <!-- ko foreach: operations -->
     <!--ko foreach: fields -->
       <!-- ko template: 'field-preview-header-template' --><!-- /ko -->
@@ -146,18 +147,16 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 <script type="text/html" id="output-generated-field-data-template">
   <!-- ko foreach: operations -->
     <!--ko foreach: fields -->
-      <td>[[generated]]</td>
+      <td data-bind="visible: keep">[[generated]]</td>
       <!-- ko template: 'output-generated-field-data-template' --><!-- /ko -->
     <!-- /ko -->
   <!--/ko -->
 </script>
 
-<script type="text/html" id="split-template">
-  <input type="text" data-bind="value: operation.settings().splitChar">
-</script>
-
-<script type="text/html" id="grok-template">
-  <input type="text" data-bind="value: operation.settings().regexp">
+<script type="text/html" id="operation-args-template">
+  <!-- ko foreach: Object.keys(operation.settings()) -->
+  <input type="text" data-bind="value: $parent.operation.settings()[$data]">
+  <!-- /ko -->
 </script>
 
 
@@ -188,18 +187,16 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
   };
 
   var Operation = function(type){
-    var Types = {
-      "split": function(){
-        settings = {}
-        settings.splitChar = ko.observable(',');
-        return ko.observable(settings);
-      },
-      "grok": function(self){
-        settings = {};
-        settings.regexp = ko.observable();
+    var constructSettings = function(type){
+      var settings = {};
+      var operation = viewModel.createWizard.operationTypes.find(function(currOperation){
+        return currOperation.name == type;
+      });
 
-        return ko.observable(settings);
+      for(var i = 0; i < operation.args.length; i++){
+        settings[operation.args[i]] = ko.observable(operation.args[i]);
       }
+      return settings;
     };
 
     var self = this;
@@ -210,7 +207,6 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     self.numExpectedFields = ko.observable(0);
 
     self.numExpectedFields.subscribe(function(numExpectedFields){
-      console.log(numExpectedFields);
       if(numExpectedFields < self.fields().length){
         self.fields(self.fields().slice(0,numExpectedFields));
       }
@@ -221,14 +217,12 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
           self.fields.push(createDefaultField());
         }
       }
-
-      console.log(self.fields());
     });
 
-    self.settings = Types[type]();
+    self.settings = ko.observable(constructSettings(type));
 
     self.type.subscribe(function(newType){
-      self.settings = Types[newType]();
+      self.settings(constructSettings(newType));
     });
   }
 
@@ -249,17 +243,9 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     var self = this;
     var guessFieldTypesXhr;
 
-    self.operationTypes = ko.observableArray([
-      "split",
-      "grok"
-      ]);
+    self.operationTypes = ${operators_json | n};
 
-    self.fieldTypes = ko.observableArray([
-      "string",
-      "text",
-      "int",
-      "long"
-      ]);
+    self.fieldTypes = ko.observableArray(${fields_json | n});
 
     self.validName = ko.observable(null);
 
@@ -275,7 +261,6 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     self.indexingStarted = ko.observable(false);
 
     self.fileFormat().format.subscribe(function(){
-      console.log("call back!");
       self.fileFormat().format().quoteChar.subscribe(self.guessFieldTypes);
       self.fileFormat().format().recordSeparator.subscribe(self.guessFieldTypes);
       self.fileFormat().format().type.subscribe(self.guessFieldTypes);
@@ -290,7 +275,6 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     })
 
     self.guessFormat = function() {
-      console.log(ko.mapping.toJSON(self.fileFormat));
       viewModel.isLoading(true);
       $.post("${ url('indexer:guess_format') }", {
         "fileFormat": ko.mapping.toJSON(self.fileFormat)
@@ -309,7 +293,6 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     }
 
     self.guessFieldTypes = function(){
-      console.log("guess field types...");
       if(guessFieldTypesXhr) guessFieldTypesXhr.abort();
       guessFieldTypesXhr = $.post("${ url('indexer:guess_field_types') }",{
         "fileFormat": ko.mapping.toJSON(self.fileFormat)
@@ -329,11 +312,8 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 
     self.indexFile = function() {
       if(!self.validName()) return;
-      console.log(ko.mapping.toJSON(self.fileFormat));
 
       self.indexingStarted(true);
-
-      console.log(self.indexingStarted());
 
       viewModel.isLoading(true);
 
@@ -342,7 +322,6 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
       }, function(resp) {
         self.showCreate(true);
         self.jobId(resp.jobId);
-        console.log(self.jobId());
         viewModel.isLoading(false);
       }).fail(function (xhr, textStatus, errorThrown) {
         $(document).trigger("error", xhr.responseText);
@@ -355,7 +334,6 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     }
 
     self.addOperation = function(field){
-      console.log("pushing operation");
       field.operations.push(new Operation("split"));
     }
   };
@@ -366,11 +344,6 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
     self.collections = ${ indexes_json | n }.filter(function(index){
       return index.type == 'collection';
     });;
-
-    // self.collections = ko.computed(function() {
-    //   return $.grep(vm.indexes(), function(index) { return index.type() == 'collection'; });
-    // });
-
 
     self.createWizard = new CreateWizard(self);
     self.isLoading = ko.observable(false);
