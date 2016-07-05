@@ -61,10 +61,6 @@ def _convert_format(format_dict, inverse=False):
 def guess_format(request):
   file_format = json.loads(request.POST.get('fileFormat', '{}'))
 
-  print type(request.user)
-  print request.user
-  print type(request.user)
-
   indexer = Indexer(request.user, request.fs)
   stream = request.fs.open(file_format["path"])
   format_ = indexer.guess_format({"file":stream})

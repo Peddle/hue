@@ -192,8 +192,6 @@ class Indexer(object):
     lookup = TemplateLookup(directories=[oozie_workspace])
     morphline = lookup.get_template("morphline_template.conf").render(**properties)
 
-    print morphline
-
     return morphline
 
 class FieldType():
