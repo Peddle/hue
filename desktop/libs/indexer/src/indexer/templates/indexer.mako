@@ -123,7 +123,9 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 <script type="text/html" id="operation-template">
   <div><select data-bind="options: $root.createWizard.operationTypes.map(function(o){return o.name});, value: operation.type"></select>
   <!-- ko template: "operation-args-template" --><!-- /ko -->
-    <input type="number" data-bind="value: operation.numExpectedFields">
+    <!-- ko if: operation.settings().outputFields() -->
+      <input type="number" data-bind="value: operation.numExpectedFields">
+    <!-- /ko -->
     <button class="btn" data-bind="click: function(){$root.createWizard.removeOperation(operation, list)}">${_('remove')}</button>
     <div style="padding-left:50px" data-bind="foreach: operation.fields">
       <div data-bind="template: { name:'field-template',data:$data}"></div>
@@ -153,11 +155,32 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
 </script>
 
 <script type="text/html" id="operation-args-template">
-  <!-- ko foreach: Object.keys(operation.settings()) -->
-  <input type="text" data-bind="value: $parent.operation.settings()[$data]">
+  <!-- ko foreach: {data: operation.settings().getArguments(), as: 'argument'} -->
+    <!-- ko template: {name: 'operation-arg-'+argument.type, data:{operation: $parent.operation, argVal: $parent.operation.settings()[argument.name]}}--><!-- /ko -->
   <!-- /ko -->
+
 </script>
 
+<script type="text/html" id="operation-arg-text">
+  <input type="text" data-bind="attr: {placeholder: argument.name}, value: argVal">
+</script>
+
+<script type="text/html" id="operation-arg-checkbox">
+  <h4 data-bind="text: argument.name"></h4>
+  <input type="checkbox" data-bind="checked: argVal">
+</script>
+
+<script type="text/html" id="operation-arg-mapping">
+  <!-- ko foreach: argVal-->
+    <div>
+      <input type="text" data-bind="value: key, attr: {placeholder: 'key'}">
+      <input type="text" data-bind="value: value, attr: {placeholder: 'value'}">
+      <button class="btn" data-bind="click: function(){$parent.operation.settings().mapping.remove($data)}">${_('Remove Pair')}</button>
+    </div>
+  <!-- /ko -->
+  <button class="btn" data-bind="click: operation.addPair">${_('Add Pair')}</button>
+  <br>
+</script>
 
 <div class="hueOverlay" data-bind="visible: isLoading">
   <!--[if lte IE 9]>
@@ -186,43 +209,107 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
   };
 
   var Operation = function(type){
+    var Argument = function(arg){
+      var self = this;
+
+      var name = arg.name;
+      var type = arg.type;
+
+      self.value = ko.observable();
+    };
+
+    Argument.getInstance = function(arg){
+      if(arg.type == "mapping"){
+        return new MappingArgument(arg);
+      }
+      else{
+        return new Argument(arg);
+      }
+    }
+
+    var MappingArgument = function(arg){
+
+
+      var self = new Argument(arg);
+
+      self.value = ko.observableArray([]);
+
+      return self;
+    }
+
+    var createArgumentValue = function(arg){
+      if(arg.type == "mapping"){
+        return ko.observableArray([]);
+      }
+      else if(arg.type =="checkbox"){
+        return ko.observable(false);
+      }
+      else{
+        return ko.observable("");
+      }
+    }
+
     var constructSettings = function(type){
       var settings = {};
+
       var operation = viewModel.createWizard.operationTypes.find(function(currOperation){
         return currOperation.name == type;
       });
 
       for(var i = 0; i < operation.args.length; i++){
-        settings[operation.args[i]] = ko.observable(operation.args[i]);
+        settings[operation.args[i].name] = createArgumentValue(operation.args[i]);
       }
+
+      settings.getArguments = function(){
+        return operation.args
+      };
+
+      settings.outputFields = function(){
+        return operation.outputFields;
+      }
+
       return settings;
     };
 
-    var self = this;
 
+
+    var init = function(){
+      self.fields([]);
+      self.numExpectedFields(0);
+
+      self.numExpectedFields.subscribe(function(numExpectedFields){
+        if(numExpectedFields < self.fields().length){
+          self.fields(self.fields().slice(0,numExpectedFields));
+        }
+        else if (numExpectedFields > self.fields().length){
+          difference = numExpectedFields - self.fields().length;
+
+          for(var i = 0; i < difference; i++){
+            self.fields.push(createDefaultField());
+          }
+        }
+      });
+      
+      self.settings(constructSettings(self.type()));
+    }
+
+    var self = this;
     self.type = ko.observable(type);
     self.fields = ko.observableArray();
+    self.numExpectedFields = ko.observable();
+    self.settings = ko.observable();
 
-    self.numExpectedFields = ko.observable(0);
-
-    self.numExpectedFields.subscribe(function(numExpectedFields){
-      if(numExpectedFields < self.fields().length){
-        self.fields(self.fields().slice(0,numExpectedFields));
-      }
-      else if (numExpectedFields > self.fields().length){
-        difference = numExpectedFields - self.fields().length;
-
-        for(var i = 0; i < difference; i++){
-          self.fields.push(createDefaultField());
-        }
-      }
-    });
-
-    self.settings = ko.observable(constructSettings(type));
+    init();
 
     self.type.subscribe(function(newType){
-      self.settings(constructSettings(newType));
+      init();
     });
+
+    self.addPair = function(){
+      window.x = self;
+      console.log("adding...");
+      self.settings().mapping.push({key: ko.observable(""), value: ko.observable("")});
+    }
   }
 
   var File_Format = function (vm) {
@@ -315,6 +402,8 @@ ${ commonheader(_("Solr Indexes"), "search", user, "60px") | n,unicode }
       self.indexingStarted(true);
 
       viewModel.isLoading(true);
+
+      console.log(ko.mapping.toJSON(self.fileFormat));
 
       $.post("${ url('indexer:index_file') }", {
         "fileFormat": ko.mapping.toJSON(self.fileFormat)
