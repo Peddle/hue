@@ -60,6 +60,11 @@ def _convert_format(format_dict, inverse=False):
 
 def guess_format(request):
   file_format = json.loads(request.POST.get('fileFormat', '{}'))
+
+  print type(request.user)
+  print request.user
+  print type(request.user)
+
   indexer = Indexer(request.user, request.fs)
   stream = request.fs.open(file_format["path"])
   format_ = indexer.guess_format({"file":stream})
@@ -87,7 +92,7 @@ def index_file(request):
 
   morphline = indexer.generate_morphline_config(collection_name, file_format, unique_field)
 
-  collection_manager = CollectionManagerController(request.user.username)
+  collection_manager = CollectionManagerController(request.user)
   if not collection_manager.collection_exists(collection_name):
     collection_manager.create_collection(collection_name, schema_fields, unique_key_field=unique_field)
 

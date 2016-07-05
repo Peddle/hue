@@ -181,7 +181,9 @@ class Indexer(object):
       "uuid_name" : uuid_name,
       "get_regex":Indexer._get_regex_for_type,
       "format":data['format'],
+      "get_kept_args": get_kept_args,
       "grok_dictionaries_location" : os.path.join(CONFIG_INDEXER_LIBS_PATH.get(), "grok_dictionaries"),
+      "geolite_db_location" : os.path.join(CONFIG_INDEXER_LIBS_PATH.get(), "GeoLite2-City.mmdb"),
       "zk_host": zkensemble()
     }
 
@@ -189,6 +191,8 @@ class Indexer(object):
 
     lookup = TemplateLookup(directories=[oozie_workspace])
     morphline = lookup.get_template("morphline_template.conf").render(**properties)
+
+    print morphline
 
     return morphline
 
@@ -204,23 +208,58 @@ class FieldType():
   @property
   def regex(self):
     return self._regex
-  
- 
+
   def matches(self, field):
     pattern = re.compile(self._regex)
 
     return pattern.match(field)
 
+class Argument():
+  def __init__(self, type_, name):
+    self._name = name
+    self._type = type_
+
+  @property
+  def name(self):
+    return self._name
+  
+  @property
+  def type(self):
+    return self._type
+
+  def to_dict(self):
+    return {"name": self._name, "type": self._type}
+
 class Operator():
-  def __init__(self, name, args):
+  def __init__(self, name, args, output_fields=True):
     self._name = name
     self._args = args
+    self._output_fields = output_fields
+
+  @property
+  def name(self):
+    return self._name
+
+  @property
+  def args(self):
+    return self._args
 
   def to_dict(self):
     return {
       "name": self._name,
-      "args": self._args
+      "args": [arg.to_dict() for arg in self._args],
+      "outputFields": self._output_fields
     }
+
+def _get_operator(operation_name):
+  return [operation for operation in Field.OPERATORS if operation.name == operation_name][0]
+
+def get_kept_args(operation):
+  operation_args = _get_operator(operation["type"]).args
+
+  kept_args = [arg for arg in operation_args if operation['settings'][arg.name]]
+
+  return kept_args
 
 class Field(object):
   TYPES = [
@@ -234,16 +273,65 @@ class Field(object):
   OPERATORS = [
     Operator(
       name="split",
-      args=["splitChar"]
-      ),
+      args=[
+        Argument("text", "splitChar")
+      ],
+    ),
     Operator(
       name="grok",
-      args=["regexp"]
-      ),
+      args=[
+        Argument("text", "regexp")
+      ]
+    ),
     Operator(
       name="convert_date",
-      args=["format"]
-      ),
+      args=[
+        Argument("text", "format")
+      ]
+    ),
+    Operator(
+      name="extract_uri_components",
+      args=[
+        Argument("checkbox", "authority"),
+        Argument("checkbox", "fragment"),
+        Argument("checkbox", "host"),
+        Argument("checkbox", "path"),
+        Argument("checkbox", "port"),
+        Argument("checkbox", "query"),
+        Argument("checkbox", "scheme"),
+        Argument("checkbox", "scheme_specific_path"),
+        Argument("checkbox", "user_info")
+      ]
+    ),
+    Operator(
+      name="geo_ip",
+      args=[
+        Argument("checkbox", "/country/iso_code"),
+        Argument("checkbox", "/country/names/en"),
+        Argument("checkbox", "/subdivisions[]/names/en"),
+        Argument("checkbox", "/subdivisions[]/iso_code"),
+        Argument("checkbox", "/city/names/en"),
+        Argument("checkbox", "/postal/code"),
+        Argument("checkbox", "/location/latitude"),
+        Argument("checkbox", "/location/longitude"),
+      ]
+    ),
+    Operator(
+      name="translate",
+      args=[
+        Argument("text", "default"),
+        Argument("mapping", "mapping")
+      ],
+      output_fields=False
+    ),
+    Operator(
+      name="find_replace",
+      args=[
+        Argument("text", "find"),
+        Argument("text", "replace")
+      ],
+      output_fields=False
+    ),
   ]
 
   def __init__(self, name, field_type):
