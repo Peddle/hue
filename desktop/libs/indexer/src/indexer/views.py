@@ -26,7 +26,7 @@ from indexer.controller2 import IndexController
 from indexer.management.commands import indexer_setup
 from indexer.fields import FIELD_TYPES
 from indexer.operations import OPERATORS
-from indexer.file_format import get_format_types
+from indexer.file_format import get_format_types, get_format_prototypes
 
 LOG = logging.getLogger(__name__)
 
@@ -57,7 +57,8 @@ def indexer(request):
       'indexes_json': json.dumps(indexes),
       'fields_json' : json.dumps([field.name for field in FIELD_TYPES]),
       'operators_json' : json.dumps([operator.to_dict() for operator in OPERATORS]),
-      'file_types_json' : json.dumps([format_.format_info() for format_ in get_format_types()])
+      'file_types_json' : json.dumps([format_.format_info() for format_ in get_format_types()]),
+      'file_prototypes_json' : json.dumps(get_format_prototypes())
   })
 
 def install_examples(request, is_redirect=False):

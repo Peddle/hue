@@ -405,22 +405,26 @@ ${ assist.assistPanel() }
     var type;
 
     var init = function () {
-      self.type = ko.observable(typeName);
 
       var types = viewModel.createWizard.fileTypes
+      var prototype;
 
       for (var i = 0; i < types.length; i++) {
         if (types[i].name == typeName) {
           type = types[i];
+          prototype = viewModel.createWizard.filePrototypes[i];
           break;
         }
       }
+
+      self.type = ko.observable(typeName);
 
       for (var i = 0; i < type.args.length; i++) {
         self[type.args[i].name] = ko.observable();
       }
 
       if (args) loadFromObj(args);
+      else loadFromObj(prototype);
 
       for (var i = 0; i < type.args.length; i++) {
         self[type.args[i].name].subscribe(viewModel.createWizard.guessFieldTypes);
@@ -469,6 +473,7 @@ ${ assist.assistPanel() }
 
     self.fieldTypes = ${fields_json | n};
     self.fileTypes = ${file_types_json | n};
+    self.filePrototypes = ${file_prototypes_json | n};
 
 
     self.show = ko.observable(true);
@@ -613,6 +618,8 @@ ${ assist.assistPanel() }
       }
       viewModel = new Editor(options);
       ko.applyBindings(viewModel);
+
+      console.log(viewModel);
     });
   });
 </script>

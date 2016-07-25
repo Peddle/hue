@@ -25,6 +25,28 @@ from indexer.argument import TextArgument, CheckboxArgument
 
 LOG = logging.getLogger(__name__)
 
+def _escape_white_space_characters(s, inverse = False):
+  MAPPINGS = {
+    "\n":"\\n",
+    "\t":"\\t",
+    "\r":"\\r",
+    " ":"\\s"
+  }
+
+  to = 1 if inverse else 0
+  from_ = 0 if inverse else 1
+
+  for pair in MAPPINGS.iteritems():
+    s = s.replace(pair[to], pair[from_]).encode('utf-8')
+
+  return s
+
+def convert_format(format_dict, inverse=False):
+  for field in format_dict:
+    if isinstance(format_dict[field], basestring):
+      format_dict[field] = _escape_white_space_characters(format_dict[field], inverse)
+
+
 def get_format_types():
   return [
     CSVFormat,
@@ -34,6 +56,9 @@ def get_format_types():
     PostgreSqlLog,
     UnixSyslog
   ]
+
+def get_format_prototypes():
+  return [format_().get_format() for format_ in get_format_types()]
 
 def get_format_mapping():
   return dict([(format_.get_name(), format_) for format_ in get_format_types()])
@@ -48,13 +73,13 @@ def get_file_format_instance(file, format_=None):
     type_ = format_["type"]
     if type_ in format_mapping:
       if format_mapping[type_].valid_format(format_):
-        return format_mapping[type_](file_stream, format_)
+        return format_mapping[type_].get_instance(file_stream, format_)
       else:
         return None
 
   matches = [type_ for type_ in get_format_types() if file_extension in type_.get_extensions()]
 
-  return (matches[0] if matches else get_format_types()[0])(file_stream, format_)
+  return (matches[0] if matches else get_format_types()[0]).get_instance(file_stream, format_)
 
 class FileFormat(object):
   _name = None
@@ -101,6 +126,10 @@ class FileFormat(object):
       "isCustomizable": cls.is_customizable(),
       "parse_type": cls.get_parse_type()
     }
+
+  @classmethod
+  def get_instance(cls, file_stream, format_):
+    return cls()
 
   def __init__(self):
     pass
@@ -155,7 +184,7 @@ class HueFormat(GrokkedFormat):
   _customizable = False
   _extensions = ["log"]
 
-  def __init__(self, file_stream, format_):
+  def __init__(self):
     self._fields = [
       Field("date", "date"),
       Field("component", "string"),
@@ -183,7 +212,7 @@ class ApacheFormat(GrokLineFormat):
   _extensions = ["log"]
   _grok = "%%{COMBINEDAPACHELOG}"
 
-  def __init__(self, file_stream, format_):
+  def __init__(self):
     self._fields = [
       Field("clientip", "string"),
       Field("ident", "string"),
@@ -212,7 +241,7 @@ class RubyLog(GrokLineFormat):
   _extensions = ["log"]
   _grok = "%%{RUBY_LOGGER}"
 
-  def __init__(self, file_stream, format_):
+  def __init__(self):
     self._fields = [
       Field("timestamp", "string"),
       Field("pid", "long"),
@@ -233,7 +262,7 @@ class UnixSyslog(GrokLineFormat):
   _grok = "%%{SYSLOGLINE}"
 
 
-  def __init__(self, file_stream, format_):
+  def __init__(self):
     self._fields = [
       Field("timestamp", "date"),
       Field("timestamp8601", "date"),
@@ -257,7 +286,7 @@ class PostgreSqlLog(GrokLineFormat):
   _grok = "%%{POSTGRESQL}"
 
 
-  def __init__(self, file_stream, format_):
+  def __init__(self):
     self._fields = [
       Field("timestamp", "date"),
       Field("user_id", "string"),
@@ -285,6 +314,13 @@ class CSVFormat(FileFormat):
     return isinstance(char, basestring) and len(char) == 1
 
   @classmethod
+  def _guess_dialect(cls, sample):
+    sniffer = csv.Sniffer()
+    dialect = sniffer.sniff(sample)
+    has_header = sniffer.has_header(sample)
+    return dialect, has_header
+
+  @classmethod
   def valid_format(cls, format_):
     valid = super(CSVFormat, cls).valid_format(format_)
     valid = valid and cls._valid_character(format_["fieldSeparator"])
@@ -294,28 +330,59 @@ class CSVFormat(FileFormat):
 
     return valid
 
-  def __init__(self, file_stream, format_=None):
+  @classmethod
+  def _guess_from_file_stream(cls, file_stream):
     file_stream.seek(0)
     sample = '\n'.join(file_stream.read(1024*1024*5).splitlines())
     file_stream.seek(0)
 
-    if self.valid_format(format_):
-      self._delimiter = format_["fieldSeparator"].encode('utf-8')
-      self._line_terminator = format_["recordSeparator"].encode('utf-8')
-      self._quote_char = format_["quoteChar"].encode('utf-8')
-      self._has_header = format_["hasHeader"]
+    try:
+      dialect, has_header = cls._guess_dialect(sample)
+      delimiter = dialect.delimiter
+      line_terminator = dialect.lineterminator
+      quote_char = dialect.quotechar
+    except Exception:
+      # guess dialect failed, fall back to defaults:
+      return cls()
+
+    return cls(**{
+      "delimiter":delimiter,
+      "line_terminator": line_terminator,
+      "quote_char": quote_char,
+      "has_header": has_header,
+      "sample": sample
+    })
+
+  @classmethod
+  def _from_format(cls, file_stream, format_):
+    file_stream.seek(0)
+    sample = '\n'.join(file_stream.read(1024*1024*5).splitlines())
+    file_stream.seek(0)
+
+    delimiter = format_["fieldSeparator"].encode('utf-8')
+    line_terminator = format_["recordSeparator"].encode('utf-8')
+    quote_char = format_["quoteChar"].encode('utf-8')
+    has_header = format_["hasHeader"]
+    return cls(**{
+      "delimiter":delimiter,
+      "line_terminator": line_terminator,
+      "quote_char": quote_char,
+      "has_header": has_header,
+      "sample": sample
+    })
+
+  @classmethod
+  def get_instance(cls, file_stream, format_):
+    if cls.valid_format(format_):
+      return cls._from_format(file_stream, format_)
     else:
-      try:
-        dialect, self._has_header = self._guess_dialect(sample)
-        self._delimiter = dialect.delimiter
-        self._line_terminator = dialect.lineterminator
-        self._quote_char = dialect.quotechar
-      except Exception:
-        # guess dialect failed, fall back to defaults:
-        self._delimiter = ','
-        self._line_terminator = '\n'
-        self._quote_char = '"'
-        self._has_header = False
+      return cls._guess_from_file_stream(file_stream)
+
+  def __init__(self, delimiter=',', line_terminator='\n', quote_char='"', has_header=False, sample=""):
+    self._delimiter = delimiter
+    self._line_terminator = line_terminator
+    self._quote_char = quote_char
+    self._has_header = has_header
 
     # sniffer insists on \r\n even when \n. This is safer and good enough for a preview
     self._line_terminator = self._line_terminator.replace("\r\n", "\n")
@@ -359,12 +426,6 @@ class CSVFormat(FileFormat):
     format_.update(specific_format)
 
     return format_
-
-  def _guess_dialect(self, sample):
-    sniffer = csv.Sniffer()
-    dialect = sniffer.sniff(sample)
-    has_header = sniffer.has_header(sample)
-    return dialect, has_header
 
   def _guess_num_columns(self, sample_rows):
     counts = {}

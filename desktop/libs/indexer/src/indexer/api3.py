@@ -28,30 +28,10 @@ from indexer.controller2 import IndexController
 from indexer.utils import get_default_fields
 from hadoop import cluster
 from indexer.smart_indexer import Indexer
+from indexer.file_format import convert_format
 from indexer.controller import CollectionManagerController
 
 LOG = logging.getLogger(__name__)
-
-def _escape_white_space_characters(s, inverse = False):
-  MAPPINGS = {
-    "\n":"\\n",
-    "\t":"\\t",
-    "\r":"\\r",
-    " ":"\\s"
-  }
-
-  to = 1 if inverse else 0
-  from_ = 0 if inverse else 1
-
-  for pair in MAPPINGS.iteritems():
-    s = s.replace(pair[to], pair[from_]).encode('utf-8')
-
-  return s
-
-def _convert_format(format_dict, inverse=False):
-  for field in format_dict:
-    if isinstance(format_dict[field], basestring):
-      format_dict[field] = _escape_white_space_characters(format_dict[field], inverse)
 
 def guess_format(request):
   file_format = json.loads(request.POST.get('fileFormat', '{}'))
@@ -64,7 +44,7 @@ def guess_format(request):
       "name":file_format['path']
       }
     })
-  _convert_format(format_)
+  convert_format(format_)
 
   return JsonResponse(format_)
 
@@ -72,7 +52,7 @@ def guess_field_types(request):
   file_format = json.loads(request.POST.get('fileFormat', '{}'))
   indexer = Indexer(request.user, request.fs)
   stream = request.fs.open(file_format["path"])
-  _convert_format(file_format["format"], inverse = True)
+  convert_format(file_format["format"], inverse = True)
   format_ = indexer.guess_field_types({
     "file":{
       "stream":stream,
@@ -85,7 +65,7 @@ def guess_field_types(request):
 
 def index_file(request):
   file_format = json.loads(request.POST.get('fileFormat', '{}'))
-  _convert_format(file_format["format"], inverse = True)
+  convert_format(file_format["format"], inverse = True)
   collection_name = file_format["name"]
   indexer = Indexer(request.user, request.fs)
   unique_field = indexer.get_uuid_name(file_format)
