@@ -29,7 +29,10 @@ def get_format_types():
   return [
     CSVFormat,
     HueFormat,
-    ApacheFormat
+    ApacheFormat,
+    RubyLog,
+    PostgreSqlLog,
+    UnixSyslog
   ]
 
 def get_format_mapping():
@@ -59,6 +62,7 @@ class FileFormat(object):
   _customizable = True
   _args = []
   _extensions = []
+  _parse_type = None
 
   @classmethod
   def get_extensions(cls):
@@ -67,6 +71,10 @@ class FileFormat(object):
   @classmethod
   def get_name(cls):
     return cls._name
+
+  @classmethod
+  def get_parse_type(cls):
+    return cls._parse_type if cls._parse_type else cls.get_name()
 
   @classmethod
   def get_description(cls):
@@ -90,7 +98,8 @@ class FileFormat(object):
       "name": cls.get_name(),
       "args": [arg.to_dict() for arg in cls.get_arguments()],
       "description": cls.get_description(),
-      "isCustomizable": cls.is_customizable()
+      "isCustomizable": cls.is_customizable(),
+      "parse_type": cls.get_parse_type()
     }
 
   def __init__(self):
@@ -105,7 +114,7 @@ class FileFormat(object):
     return []
 
   def get_format(self):
-    return {"type": self.get_name()}
+    return {"type": self.get_name(), "parse_type": self.get_parse_type()}
 
   def get_fields(self):
     obj = {}
@@ -124,7 +133,23 @@ class FileFormat(object):
 
     return obj
 
-class HueFormat(FileFormat):
+class GrokkedFormat(FileFormat):
+  _grok = None
+
+  @classmethod
+  def get_grok(cls):
+    return cls._grok
+
+  def get_format(self):
+    format_ = super(GrokkedFormat, self).get_format()
+    specific_format = {
+      "grok":self.get_grok()
+    }
+    format_.update(specific_format)
+
+    return format_
+
+class HueFormat(GrokkedFormat):
   _name = "hue"
   _description = _("Hue Log File")
   _customizable = False
@@ -148,11 +173,15 @@ class HueFormat(FileFormat):
   def fields(self):
     return self._fields
 
-class ApacheFormat(FileFormat):
+class GrokLineFormat(GrokkedFormat):
+  _parse_type = "grok_line"
+
+class ApacheFormat(GrokLineFormat):
   _name = "combined_apache"
   _description = _("Combined Apache Log File")
   _customizable = False
   _extensions = ["log"]
+  _grok = "%%{COMBINEDAPACHELOG}"
 
   def __init__(self, file_stream, format_):
     self._fields = [
@@ -168,6 +197,72 @@ class ApacheFormat(FileFormat):
       Field("bytes", "long"),
       Field("referrer", "string"),
       Field("message", "text_en")
+    ]
+
+  # %{COMBINEDAPACHELOG}
+
+  @property
+  def fields(self):
+    return self._fields
+
+class RubyLog(GrokLineFormat):
+  _name = "ruby_log"
+  _description = _("Ruby Log")
+  _customizable = False
+  _extensions = ["log"]
+  _grok = "%%{RUBY_LOGGER}"
+
+  def __init__(self, file_stream, format_):
+    self._fields = [
+      Field("timestamp", "string"),
+      Field("pid", "long"),
+      Field("loglevel", "string"),
+      Field("progname", "string"),
+      Field("message", "text_en")
+    ]
+
+  @property
+  def fields(self):
+    return self._fields
+
+class UnixSyslog(GrokLineFormat):
+  _name = "syslog"
+  _description = _("Linux syslog")
+  _customizable = False
+  _extensions = ["log"]
+  _grok = "%%{SYSLOGLINE}"
+
+
+  def __init__(self, file_stream, format_):
+    self._fields = [
+      Field("timestamp", "date"),
+      Field("timestamp8601", "date"),
+      Field("facility", "long"),
+      Field("priority", "long"),
+      Field("logsource", "string"),
+      Field("program", "string"),
+      Field("pid", "long"),
+      Field("message", "text_en")
+    ]
+
+  @property
+  def fields(self):
+    return self._fields
+
+class PostgreSqlLog(GrokLineFormat):
+  _name = "postgresql_log"
+  _description = _("PostgreSQL Log")
+  _customizable = False
+  _extensions = ["log"]
+  _grok = "%%{POSTGRESQL}"
+
+
+  def __init__(self, file_stream, format_):
+    self._fields = [
+      Field("timestamp", "date"),
+      Field("user_id", "string"),
+      Field("connection_id", "string"),
+      Field("pid", "long")
     ]
 
   @property

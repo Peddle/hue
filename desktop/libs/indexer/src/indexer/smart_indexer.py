@@ -25,7 +25,7 @@ from liboozie.submission2 import Submission
 
 from indexer.fields import Field, FIELD_TYPES
 from indexer.operations import get_checked_args
-from indexer.file_format import get_file_format_instance
+from indexer.file_format import get_file_format_instance, get_format_mapping
 from indexer.conf import CONFIG_INDEXING_TEMPLATES_PATH
 from indexer.conf import CONFIG_INDEXER_LIBS_PATH
 from indexer.conf import zkensemble
@@ -131,6 +131,7 @@ class Indexer(object):
     return fields
 
   def get_kept_field_list(self, field_data):
+    print [field for field in self.get_field_list(field_data) if field['keep']]
     return [field for field in self.get_field_list(field_data) if field['keep']]
 
   def get_uuid_name(self, format_):
@@ -175,6 +176,12 @@ class Indexer(object):
     geolite_loc = os.path.join(CONFIG_INDEXER_LIBS_PATH.get(), "GeoLite2-City.mmdb")
     grok_dicts_loc = os.path.join(CONFIG_INDEXER_LIBS_PATH.get(), "grok_dictionaries")
 
+    print '-------------------------------------------------------------'
+    print '-------------------------------------------------------------'
+    print data['format']
+    print '-------------------------------------------------------------'
+    print '-------------------------------------------------------------'
+
     properties = {
       "collection_name":collection_name,
       "fields":self.get_field_list(data['columns']),
@@ -182,7 +189,7 @@ class Indexer(object):
       "format_character":Indexer._format_character,
       "uuid_name" : uuid_name,
       "get_regex":Indexer._get_regex_for_type,
-      "format":data['format'],
+      "format": data['format'],
       "get_kept_args": get_checked_args,
       "grok_dictionaries_location" : grok_dicts_loc if self.fs.exists(grok_dicts_loc) else None,
       "geolite_db_location" : geolite_loc if self.fs.exists(geolite_loc) else None,
